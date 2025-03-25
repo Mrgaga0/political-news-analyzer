@@ -7,22 +7,30 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&display=swap');
         
         :root {
-            --primary: #3b82f6;
-            --primary-dark: #2563eb;
-            --glass-bg: rgba(255, 255, 255, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.18);
-            --glass-shadow: rgba(142, 180, 254, 0.5);
+            --primary: #0071e3;
+            --primary-dark: #0058b9;
+            --primary-light: #4ca8ff;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.25);
+            --glass-shadow: rgba(0, 113, 227, 0.2);
+            --apple-gray: #f5f5f7;
+            --apple-text: #1d1d1f;
+            --apple-caption: #86868b;
         }
         
         body {
-            font-family: 'Noto Sans KR', sans-serif;
-            background-color: #f8f9fa;
-            color: #333;
+            font-family: 'SF Pro Display', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--apple-gray);
+            color: var(--apple-text);
             overflow-x: hidden;
             position: relative;
+            letter-spacing: -0.022em;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         
         /* 애니메이션 배경 */
@@ -34,33 +42,35 @@
             height: 100%;
             z-index: -1;
             overflow: hidden;
-            opacity: 0.8;
+            background: linear-gradient(135deg, var(--apple-gray) 0%, #ffffff 100%);
         }
         
         .animated-bg::before,
         .animated-bg::after {
             content: '';
             position: absolute;
-            width: 300px;
-            height: 300px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, rgba(91, 33, 182, 0.1) 60%, transparent 70%);
-            animation: float 15s infinite ease-in-out;
+            filter: blur(80px);
+            opacity: 0.25;
+            animation: float 25s infinite ease-in-out;
         }
         
         .animated-bg::before {
             top: 10%;
             left: 10%;
+            width: 40vw;
+            height: 40vw;
+            background: radial-gradient(circle, rgba(0, 113, 227, 0.4) 0%, rgba(0, 113, 227, 0.1) 70%, transparent 100%);
             animation-delay: 0s;
         }
         
         .animated-bg::after {
             bottom: 10%;
             right: 10%;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(236, 72, 153, 0.2) 0%, rgba(59, 130, 246, 0.1) 60%, transparent 70%);
-            animation-delay: -5s;
+            width: 60vw;
+            height: 60vw;
+            background: radial-gradient(circle, rgba(165, 80, 233, 0.2) 0%, rgba(0, 113, 227, 0.1) 70%, transparent 100%);
+            animation-delay: -10s;
         }
         
         @keyframes float {
@@ -68,40 +78,49 @@
                 transform: translate(0, 0) scale(1);
             }
             25% {
-                transform: translate(10%, 15%) scale(1.1);
+                transform: translate(3%, 2%) scale(1.05);
             }
             50% {
-                transform: translate(5%, -10%) scale(0.9);
+                transform: translate(1%, -2%) scale(0.95);
             }
             75% {
-                transform: translate(-10%, 5%) scale(1.05);
+                transform: translate(-2%, 1%) scale(1.02);
             }
         }
         
         /* 글래스모피즘 효과 */
         .glass {
             background: var(--glass-bg);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
-            box-shadow: 0 8px 32px 0 var(--glass-shadow);
-            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px -5px var(--glass-shadow);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         
-        /* 3D 카드 효과 */
+        /* 애플 스타일 카드 효과 */
         .tilt-card {
             transform-style: preserve-3d;
             perspective: 1000px;
-            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            border-radius: 20px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 
+                0 2px 8px rgba(0, 0, 0, 0.05),
+                0 20px 30px -10px rgba(0, 0, 0, 0.08);
         }
         
         .tilt-card-content {
             transform: translateZ(20px);
-            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
         }
         
         .tilt-card:hover {
-            transform: rotateX(5deg) rotateY(5deg);
+            transform: scale(1.02) translateY(-5px);
+            box-shadow: 
+                0 5px 15px rgba(0, 0, 0, 0.08),
+                0 25px 50px -12px rgba(0, 0, 0, 0.12);
         }
         
         .tilt-card:hover .tilt-card-content {
@@ -112,7 +131,8 @@
         .fade-in {
             opacity: 0;
             transform: translateY(30px);
-            transition: opacity 0.6s ease, transform 0.6s ease;
+            transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), 
+                        transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
         }
         
         .fade-in.active {
@@ -128,7 +148,7 @@
         
         /* 그라데이션 텍스트 */
         .gradient-text {
-            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+            background: linear-gradient(90deg, var(--primary), #50a3ff, #a550e9);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -142,299 +162,188 @@
             100% { background-position: 0% 50%; }
         }
         
-        /* 반응형 발광 버튼 */
-        .glow-button {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.4s ease;
-            z-index: 1;
-            border: 1px solid rgba(59, 130, 246, 0.3);
+        /* 애플 스타일 버튼 */
+        .apple-button {
+            background-color: var(--primary);
+            color: white;
+            border-radius: 980px;
+            padding: 12px 22px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            border: none;
+            outline: none;
+            cursor: pointer;
+            text-align: center;
+            transform: translateY(0);
+            box-shadow: 0 4px 8px rgba(0, 113, 227, 0.3);
         }
         
-        .glow-button::before {
-            content: '';
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            width: calc(100% + 4px);
-            height: calc(100% + 4px);
-            background: linear-gradient(45deg, #3b82f6, #8b5cf6, #ec4899, #3b82f6);
-            background-size: 400%;
-            z-index: -1;
-            animation: glowing 20s linear infinite;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-            border-radius: inherit;
+        .apple-button:hover {
+            background-color: var(--primary-light);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0, 113, 227, 0.4);
         }
         
-        .glow-button:hover::before,
-        .glow-button:focus::before {
-            opacity: 1;
-        }
-        
-        .glow-button::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            z-index: -1;
-            background: var(--primary);
-            border-radius: inherit;
-            transition: background-color 0.3s ease;
-        }
-        
-        .glow-button:hover::after {
-            background: #1a56db;
-        }
-        
-        @keyframes glowing {
-            0% { background-position: 0 0; }
-            50% { background-position: 400% 0; }
-            100% { background-position: 0 0; }
-        }
-        
-        /* 발광 오버레이 효과 */
-        .glow-overlay::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(
-                45deg,
-                transparent 45%,
-                rgba(255, 255, 255, 0.8) 50%,
-                transparent 55%
-            );
-            transition: all 0.5s ease;
-            transform: translateX(-100%) translateY(-100%) rotate(45deg);
-            animation: glow-sweep 3s infinite;
-            pointer-events: none;
-        }
-        
-        @keyframes glow-sweep {
-            0% {
-                transform: translateX(-100%) translateY(-100%) rotate(45deg);
-            }
-            100% {
-                transform: translateX(100%) translateY(100%) rotate(45deg);
-            }
-        }
-        
-        /* 기존 애니메이션 */
-        .animate-pulse {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: .5;
-            }
-        }
-        
-        .topic-card {
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            border-left: 5px solid transparent;
-            overflow: hidden;
-        }
-        
-        .topic-card:hover {
-            transform: translateY(-10px) rotateX(5deg);
-            border-left: 5px solid #3b82f6;
-        }
-        
-        .topic-card:hover .shimmer-text {
-            animation: text-shimmer 2s linear infinite;
+        .apple-button:active {
+            background-color: var(--primary-dark);
+            transform: translateY(1px);
+            box-shadow: 0 2px 5px rgba(0, 113, 227, 0.2);
         }
         
         /* 텍스트 효과 */
-        @keyframes text-glow {
-            0% { text-shadow: 0 0 5px rgba(255, 255, 255, 0.3); }
-            50% { text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 15px rgba(59, 130, 246, 0.6); }
-            100% { text-shadow: 0 0 5px rgba(255, 255, 255, 0.3); }
-        }
-        
-        @keyframes text-shimmer {
-            0% { 
-                background-position: -100% 0; 
-                color: rgba(59, 130, 246, 0.7);
-            }
-            100% { 
-                background-position: 200% 0;
-                color: rgba(59, 130, 246, 1);
-            }
-        }
-        
         .shimmer-text {
             position: relative;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
         
         .shimmer-text:hover {
             background: linear-gradient(
                 90deg, 
-                rgba(59, 130, 246, 0.5) 0%, 
-                rgba(37, 99, 235, 0.7) 25%, 
-                rgba(59, 130, 246, 0.8) 50%, 
-                rgba(37, 99, 235, 0.7) 75%, 
-                rgba(59, 130, 246, 0.5) 100%
+                var(--primary) 0%, 
+                var(--primary-light) 50%, 
+                var(--primary) 100%
             );
             background-size: 200% auto;
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
-            animation: text-shimmer 2s linear infinite;
-            text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+            animation: text-shimmer 3s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+            text-shadow: 0 0 10px rgba(0, 113, 227, 0.15);
         }
         
-        @keyframes border-flow {
-            100% { background-position: 0% 0%; }
-            0% { background-position: 100% 0%; }
+        @keyframes text-shimmer {
+            0% { background-position: -100% 0; }
+            100% { background-position: 200% 0; }
         }
         
-        .hologram-button {
-            position: relative;
-            transition: all 0.3s ease;
-        }
-        
-        .hologram-button:hover {
-            transform: translateY(-2px);
-        }
-        
-        .hologram-button:hover span {
-            background: linear-gradient(
-                90deg, 
-                rgba(255, 255, 255, 1) 0%, 
-                rgba(59, 130, 246, 1) 25%, 
-                rgba(255, 255, 255, 1) 50%, 
-                rgba(59, 130, 246, 1) 75%, 
-                rgba(255, 255, 255, 1) 100%
-            );
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            animation: text-shimmer 2s linear infinite;
-            text-shadow: 0 0 8px rgba(59, 130, 246, 0.7);
-        }
-        
-        .content-appear {
-            animation: fadeIn 0.5s ease-in-out;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .news-item {
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            transition: all 0.3s ease;
-            position: relative;
+        /* 토픽 카드 */
+        .topic-card {
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
             overflow: hidden;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        
+        .topic-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 
+                0 12px 20px rgba(0, 0, 0, 0.06),
+                0 20px 30px -10px rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 113, 227, 0.1);
+        }
+        
+        .topic-card:hover .shimmer-text {
+            animation: text-shimmer 3s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+        }
+        
+        /* 뉴스 아이템 */
+        .news-item {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.04);
         }
         
         .news-item:hover {
-            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-        }
-        
-        .news-item:hover::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(
-                45deg,
-                transparent 45%,
-                rgba(255, 255, 255, 0.4) 50%,
-                transparent 55%
-            );
-            transform: translateX(-100%) translateY(-100%) rotate(45deg);
-            animation: sweep 1s forwards;
-            pointer-events: none;
-        }
-        
-        @keyframes sweep {
-            0% {
-                transform: translateX(-100%) translateY(-100%) rotate(45deg);
-            }
-            100% {
-                transform: translateX(100%) translateY(100%) rotate(45deg);
-            }
-        }
-        
-        .brand-gradient {
-            background: linear-gradient(90deg, #3b82f6, #2563eb);
-        }
-        
-        .search-input:focus {
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
-        }
-        
-        .article-content {
-            line-height: 1.8;
-        }
-        
-        .article-content p {
-            margin-bottom: 1.5rem;
-        }
-        
-        /* 링크 및 버튼에 대한 글로우 효과 추가 */
-        a, button, .topic-card h3, .article-content h1, .article-content h2, .article-content h3 {
-            transition: all 0.3s ease;
-        }
-        
-        a:hover, .article-content h1:hover, .article-content h2:hover, .article-content h3:hover {
-            text-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
-            color: #2563eb;
-        }
-        
-        /* 소스 링크 스타일 */
-        .sources-list a {
-            transition: all 0.3s ease;
-        }
-        
-        .sources-list a:hover {
-            text-shadow: 0 0 5px rgba(59, 130, 246, 0.6);
-            color: #2563eb;
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+            border-color: rgba(0, 113, 227, 0.1);
         }
         
         /* 스크롤바 커스터마이징 */
         ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
         }
         
         ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.03);
+            border-radius: 6px;
         }
         
         ::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, var(--primary), var(--primary-dark));
-            border-radius: 10px;
+            background: rgba(0, 113, 227, 0.3);
+            border-radius: 6px;
         }
         
         ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(180deg, var(--primary-dark), var(--primary));
+            background: rgba(0, 113, 227, 0.5);
         }
         
-        /* 로딩 스피너 애니메이션 개선 */
+        /* 로딩 스피너 */
         .spinner {
             border-radius: 50%;
-            background: conic-gradient(transparent, transparent, transparent, var(--primary));
-            animation: rotate 1s linear infinite;
+            border: 2px solid rgba(0, 113, 227, 0.2);
+            border-top-color: var(--primary);
+            animation: spin 0.8s linear infinite;
+            width: 30px;
+            height: 30px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 3D 그림자 효과 */
+        .shadow-3d {
             position: relative;
         }
         
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+        .shadow-3d::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            opacity: 0.25;
+            filter: blur(15px);
+            background: linear-gradient(135deg, rgba(0, 113, 227, 0.8), rgba(165, 80, 233, 0.8));
+            transform: translateY(10px) scale(0.95);
+            border-radius: inherit;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .shadow-3d:hover::after {
+            opacity: 0.35;
+            transform: translateY(15px) scale(0.92);
+            filter: blur(20px);
+        }
+        
+        /* 애플 스타일 내비게이션 */
+        .apple-nav {
+            font-weight: 400;
+            font-size: 14px;
+            letter-spacing: -0.01em;
+        }
+        
+        .apple-nav a {
+            transition: color 0.3s ease;
+            position: relative;
+        }
+        
+        .apple-nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: var(--primary);
+            transform: scaleX(0);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .apple-nav a:hover {
+            color: var(--primary);
+        }
+        
+        .apple-nav a:hover::after {
+            transform: scaleX(1);
         }
     </style>
 </head>
@@ -444,258 +353,160 @@
     
     <div id="app" class="min-h-screen flex flex-col">
         <!-- Header -->
-        <header class="sticky top-0 z-50 bg-white shadow-md glass">
-            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+        <header class="sticky top-0 z-50 glass">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
                 <div>
-                    <h1 class="text-2xl font-bold gradient-text">Mr.gaga 스튜디오</h1>
+                    <a href="#" class="text-2xl font-semibold gradient-text flex items-center gap-2" onclick="showHomePage()">
+                        <i class="fas fa-globe-asia"></i> 글로벌 인사이트
+                    </a>
                 </div>
-                <nav class="hidden md:flex space-x-8">
-                    <a href="#" class="text-gray-600 hover:text-blue-600 font-medium transition shimmer-text" onclick="showHomePage()">홈</a>
-                    <a href="#archive" class="text-gray-600 hover:text-blue-600 font-medium transition shimmer-text">아카이브</a>
+                <nav class="apple-nav hidden md:flex space-x-6">
+                    <a href="#" onclick="showHomePage()">홈</a>
+                    <a href="#archive" onclick="showArchivePage()">아카이브</a>
+                    <a href="https://github.com/yourusername/political-news-analyzer" target="_blank">GitHub</a>
                 </nav>
-                <div class="flex items-center space-x-4">
-                    <button class="md:hidden text-gray-600 focus:outline-none">
-                        <i class="fas fa-bars text-xl"></i>
+                <div class="flex items-center space-x-3">
+                    <button class="hidden md:block apple-button text-sm" id="analyzeButton">
+                        <i class="fas fa-search mr-2"></i>분석 시작
+                    </button>
+                    <button class="md:hidden p-2 rounded-full bg-white shadow">
+                        <i class="fas fa-bars text-gray-600"></i>
                     </button>
                 </div>
             </div>
         </header>
-
-        <!-- Main Content -->
-        <main class="flex-grow container mx-auto px-4 py-8">
+        
+        <!-- Main Content Area -->
+        <main class="flex-grow container mx-auto px-4 md:px-6 py-10">
             <!-- Home Page -->
-            <div id="homePage" class="content-appear">
-                <div class="text-center max-w-3xl mx-auto mb-12 fade-in">
-                    <h2 class="text-4xl font-bold mb-4 gradient-text">충성을 다하는 오비스 Ver0.1입니다</h2>
-                </div>
-
-                <div class="flex justify-center items-center mb-12 fade-in delay-200">
-                    <button id="analyzeButton" class="glow-button px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md font-medium text-lg transition" onclick="generateReport()">
-                        <span>분석 시작</span>
+            <div id="homePage" class="min-h-[70vh]">
+                <div class="text-center mb-16 max-w-4xl mx-auto fade-in">
+                    <h1 class="text-4xl md:text-5xl font-bold mb-6 gradient-text">국제 정치 뉴스 인사이트</h1>
+                    <p class="text-lg md:text-xl text-gray-600 mb-8">최신 해외 정치 뉴스를 AI가 자동으로 분석하여 중요 이슈와 쟁점을 요약해 드립니다.</p>
+                    <button class="apple-button text-lg shadow-3d md:hidden" id="mobileAnalyzeButton">
+                        <i class="fas fa-search mr-2"></i>분석 시작
                     </button>
                 </div>
 
-                <div id="loadingState" class="hidden max-w-5xl mx-auto p-8 glass rounded-xl shadow-lg mb-8">
+                <div id="loadingState" class="hidden max-w-5xl mx-auto p-8 glass rounded-2xl shadow-lg mb-8">
                     <div class="flex items-center space-x-4 mb-6">
-                        <div class="animate-pulse h-4 w-16 bg-blue-200 rounded"></div>
-                        <div class="animate-pulse h-4 w-24 bg-gray-200 rounded"></div>
-                        <div class="animate-pulse h-4 w-20 bg-gray-200 rounded"></div>
+                        <div class="animate-pulse h-4 w-16 bg-blue-200 rounded-full"></div>
+                        <div class="animate-pulse h-4 w-24 bg-gray-200 rounded-full"></div>
+                        <div class="animate-pulse h-4 w-20 bg-gray-200 rounded-full"></div>
                     </div>
                     <div class="space-y-6">
-                        <div class="animate-pulse h-8 w-3/4 bg-gray-200 rounded mb-2"></div>
-                        <div class="animate-pulse h-4 w-full bg-gray-200 rounded"></div>
-                        <div class="animate-pulse h-4 w-full bg-gray-200 rounded"></div>
-                        <div class="animate-pulse h-4 w-2/3 bg-gray-200 rounded"></div>
-                        <div class="spinner h-12 w-12 mx-auto border-t-2 border-b-2 border-blue-500 mt-6"></div>
-                        <div class="flex space-x-4">
-                            <div class="animate-pulse h-4 w-1/3 bg-gray-200 rounded"></div>
-                            <div class="animate-pulse h-4 w-1/3 bg-gray-200 rounded"></div>
+                        <div class="animate-pulse h-8 w-3/4 bg-gray-200 rounded-full mb-2"></div>
+                        <div class="animate-pulse h-4 w-full bg-gray-200 rounded-full"></div>
+                        <div class="animate-pulse h-4 w-full bg-gray-200 rounded-full"></div>
+                        <div class="animate-pulse h-4 w-2/3 bg-gray-200 rounded-full"></div>
+                        <div class="flex justify-center mt-8">
+                            <div class="spinner"></div>
                         </div>
+                        <div class="text-center text-sm text-gray-500 mt-4">국제 정치 이슈를 분석하고 있습니다...</div>
                     </div>
                 </div>
 
-                <div id="topicsList" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6 max-w-7xl mx-auto">
+                <div id="topicsList" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
                     <!-- Topics will be generated here -->
                 </div>
             </div>
 
-            <!-- Archive Page -->
-            <div id="archivePage" class="hidden content-appear">
-                <div class="mb-8 flex items-center fade-in">
-                    <button onclick="showHomePage()" class="hologram-button flex items-center text-blue-600 hover:text-blue-800 font-medium px-4 py-2 rounded">
-                        <i class="fas fa-arrow-left mr-2"></i> <span>홈으로 돌아가기</span>
-                    </button>
-                    <h2 class="text-3xl font-bold ml-6 gradient-text">지난 분석 아카이브</h2>
-                </div>
-
-                <div class="mb-4 p-4 glass rounded-lg text-blue-800 fade-in delay-100">
-                    <div class="flex items-center">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        <p class="shimmer-text">지난 7일간의 분석 결과를 확인할 수 있습니다. 오래된 데이터는 자동으로 삭제됩니다.</p>
+            <!-- Report Page -->
+            <div id="reportPage" class="hidden max-w-6xl mx-auto px-4 pb-20">
+                <!-- Report Header -->
+                <div class="mb-8 glass p-6 rounded-3xl shadow-3d report-header">
+                    <div class="flex items-center mb-4">
+                        <button onclick="showHomePage()" class="mr-4 p-2 rounded-full bg-white shadow hover:bg-gray-50 transition">
+                            <i class="fas fa-arrow-left text-gray-600"></i>
+                        </button>
+                        <h1 id="reportTitle" class="text-2xl md:text-3xl font-bold gradient-text"></h1>
+                    </div>
+                    <div class="flex flex-wrap justify-between items-center">
+                        <p id="reportDate" class="text-sm text-gray-500"></p>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 rounded-full text-sm bg-gray-100 hover:bg-gray-200 transition">
+                                <i class="fas fa-share-alt mr-1"></i> 공유
+                            </button>
+                            <button class="px-3 py-1 rounded-full text-sm bg-gray-100 hover:bg-gray-200 transition">
+                                <i class="fas fa-print mr-1"></i> 인쇄
+                            </button>
+                        </div>
                     </div>
                 </div>
-
-                <div id="archivesList" class="grid grid-cols-1 gap-4 max-w-5xl mx-auto">
-                    <!-- Archives will be loaded here -->
+                
+                <!-- Report Content -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    <div class="md:col-span-9">
+                        <div id="reportContent" class="glass p-8 rounded-3xl shadow-lg article-content"></div>
+                    </div>
+                    <div class="md:col-span-3">
+                        <div class="glass p-6 rounded-3xl shadow-lg sticky top-24">
+                            <h3 class="text-lg font-bold mb-4 gradient-text">관련 뉴스</h3>
+                            <div id="relatedNews" class="space-y-4"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Report Page -->
-            <div id="reportPage" class="hidden content-appear">
-                <div class="mb-8 flex items-center fade-in">
-                    <button onclick="showHomePage()" class="hologram-button flex items-center text-blue-600 hover:text-blue-800 font-medium px-4 py-2 rounded">
-                        <i class="fas fa-arrow-left mr-2"></i> <span>목록으로 돌아가기</span>
-                    </button>
-                    <h2 id="reportTitle" class="text-3xl font-bold ml-6 gradient-text"></h2>
-                </div>
-
-                <div class="glass shadow-lg rounded-xl overflow-hidden fade-in delay-100">
-                    <div class="border-b border-gray-200 px-6 py-4 bg-gray-50 flex justify-between items-center" style="background: rgba(249, 250, 251, 0.7);">
-                        <div class="flex items-center space-x-2">
-                            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium shimmer-text">국제 정치</span>
-                            <span id="reportDate" class="text-gray-500 shimmer-text"></span>
-                        </div>
-                        <div class="flex space-x-3">
-                            <button class="text-gray-500 hover:text-gray-700 relative glow-overlay">
-                                <i class="far fa-bookmark"></i>
-                            </button>
-                            <button class="text-gray-500 hover:text-gray-700 relative glow-overlay">
-                                <i class="fas fa-share-alt"></i>
-                            </button>
-                            <button class="text-gray-500 hover:text-gray-700 relative glow-overlay">
-                                <i class="fas fa-print"></i>
-                            </button>
-                        </div>
+            <!-- Archive Page -->
+            <div id="archivePage" class="hidden max-w-6xl mx-auto fade-in">
+                <!-- Archive Header -->
+                <div class="mb-8 glass p-6 rounded-3xl shadow-3d">
+                    <div class="flex items-center mb-4">
+                        <button onclick="showHomePage()" class="mr-4 p-2 rounded-full bg-white shadow hover:bg-gray-50 transition">
+                            <i class="fas fa-arrow-left text-gray-600"></i>
+                        </button>
+                        <h1 class="text-2xl md:text-3xl font-bold gradient-text">아카이브</h1>
                     </div>
-                    <div id="reportContent" class="p-6 article-content"></div>
+                    <p class="text-gray-600">이전 분석 결과를 확인할 수 있습니다.</p>
                 </div>
-
-                <div class="mt-8 glass rounded-xl p-6 shadow-sm fade-in delay-200">
-                    <h3 class="text-xl font-semibold mb-4 gradient-text">이 주제와 관련된 다른 뉴스</h3>
-                    <div id="relatedNews" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <!-- Related news will be populated here -->
-                    </div>
+                
+                <!-- Archive List -->
+                <div id="archivesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Archive items will be generated here -->
                 </div>
             </div>
         </main>
-
+        
         <!-- Footer -->
-        <footer class="bg-gray-800 text-white py-6">
-            <div class="container mx-auto px-4">
-                <div class="border-t border-gray-700 mt-2 pt-4 text-center text-gray-400">
-                    <p class="shimmer-text">&copy; 2025 Mr.gaga 스튜디오 오비스 All rights reserved.</p>
+        <footer class="bg-white glass mt-auto py-8">
+            <div class="container mx-auto px-6">
+                <div class="flex flex-wrap justify-between">
+                    <div class="w-full md:w-auto mb-6 md:mb-0">
+                        <h3 class="text-xl font-bold gradient-text mb-4">글로벌 인사이트</h3>
+                        <p class="text-gray-600 max-w-md">AI 기반 국제 정치 뉴스 분석 플랫폼입니다. 최신 해외 정치 뉴스를 자동으로 분석하여 중요 이슈와 쟁점을 요약해 드립니다.</p>
+                    </div>
+                    <div class="w-full md:w-auto">
+                        <h4 class="font-semibold mb-4">연결하기</h4>
+                        <div class="flex space-x-4">
+                            <a href="#" class="text-gray-500 hover:text-primary transition">
+                                <i class="fab fa-github text-xl"></i>
+                            </a>
+                            <a href="#" class="text-gray-500 hover:text-primary transition">
+                                <i class="fab fa-twitter text-xl"></i>
+                            </a>
+                            <a href="#" class="text-gray-500 hover:text-primary transition">
+                                <i class="fas fa-envelope text-xl"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="border-t border-gray-200 mt-8 pt-6 text-center text-sm text-gray-500">
+                    <p>&copy; 2024 글로벌 인사이트. All rights reserved.</p>
                 </div>
             </div>
         </footer>
     </div>
 
-    <script src="/js/main.js"></script>
-    
-    <!-- 새로운 인터랙티브 효과를 위한 스크립트 -->
+    <script src="js/main.js"></script>
     <script>
-        // 스크롤 애니메이션
-        function handleScrollAnimations() {
-            const fadeElements = document.querySelectorAll('.fade-in');
-            const triggerBottom = window.innerHeight * 0.8;
-            
-            fadeElements.forEach(element => {
-                const elementTop = element.getBoundingClientRect().top;
-                if (elementTop < triggerBottom) {
-                    element.classList.add('active');
-                }
-            });
-        }
-        
-        // 3D 틸트 효과
-        function initTiltEffect() {
-            const cards = document.querySelectorAll('.tilt-card');
-            
-            cards.forEach(card => {
-                card.addEventListener('mousemove', e => {
-                    const cardRect = card.getBoundingClientRect();
-                    const cardCenterX = cardRect.left + cardRect.width / 2;
-                    const cardCenterY = cardRect.top + cardRect.height / 2;
-                    const angleY = -(e.clientX - cardCenterX) / 15;
-                    const angleX = (e.clientY - cardCenterY) / 15;
-                    
-                    card.style.transform = `rotateY(${angleY}deg) rotateX(${angleX}deg)`;
-                });
-                
-                card.addEventListener('mouseleave', () => {
-                    card.style.transform = 'rotateY(0) rotateX(0)';
-                });
-            });
-        }
-        
-        // 순차적으로 요소 등장 애니메이션 적용
-        function applySequentialFade() {
-            const topics = document.querySelectorAll('#topicsList > div');
-            const news = document.querySelectorAll('#relatedNews > div');
-            
-            // 토픽 카드들에 순차 애니메이션 적용
-            topics.forEach((topic, index) => {
-                topic.classList.add('fade-in');
-                topic.classList.add(`delay-${(index % 5 + 1) * 100}`);
-                
-                // 동적으로 생성된 요소에도 틸트 효과 적용
-                topic.classList.add('tilt-card');
-                const inner = topic.querySelector('div');
-                if (inner) inner.classList.add('tilt-card-content');
-            });
-            
-            // 뉴스 아이템에 순차 애니메이션 적용
-            news.forEach((item, index) => {
-                item.classList.add('fade-in');
-                item.classList.add(`delay-${(index % 3 + 1) * 100}`);
-            });
-            
-            // 초기화 후 애니메이션 트리거
-            setTimeout(() => {
-                handleScrollAnimations();
-            }, 100);
-        }
-        
-        // 토픽 카드가 동적으로 생성될 때 3D 효과와 순차 애니메이션 적용
-        const originalRenderTopics = window.renderTopics;
-        if (originalRenderTopics) {
-            window.renderTopics = function(...args) {
-                originalRenderTopics.apply(this, args);
-                setTimeout(() => {
-                    applySequentialFade();
-                    initTiltEffect();
-                }, 100);
-            };
-        }
-        
-        // 관련 뉴스가 동적으로 생성될 때 순차 애니메이션 적용
-        const originalRenderRelatedNews = window.renderRelatedNews;
-        if (originalRenderRelatedNews) {
-            window.renderRelatedNews = function(...args) {
-                originalRenderRelatedNews.apply(this, args);
-                setTimeout(() => {
-                    applySequentialFade();
-                }, 100);
-            };
-        }
-        
-        // 이벤트 등록
+        // Mobile analyze button
         document.addEventListener('DOMContentLoaded', () => {
-            handleScrollAnimations();
-            initTiltEffect();
-            
-            // 스크롤 이벤트 리스너
-            window.addEventListener('scroll', handleScrollAnimations);
+            const mobileAnalyzeButton = document.getElementById('mobileAnalyzeButton');
+            if (mobileAnalyzeButton) {
+                mobileAnalyzeButton.addEventListener('click', generateReport);
+            }
         });
-        
-        // shimmer-text 효과를 기사 내용 내 모든 텍스트에 적용하는 함수 확장
-        const originalApplyShimmerToContent = window.applyShimmerToContent;
-        if (originalApplyShimmerToContent) {
-            window.applyShimmerToContent = function() {
-                originalApplyShimmerToContent.apply(this);
-                
-                // 기사 컨텐츠에 3D 인터랙션 효과 추가
-                const headings = document.querySelectorAll('#reportContent h1, #reportContent h2');
-                headings.forEach(heading => {
-                    heading.classList.add('gradient-text');
-                });
-                
-                // 이미지에 틸트 효과 추가
-                const images = document.querySelectorAll('#reportContent img');
-                images.forEach(img => {
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'tilt-card my-4';
-                    img.parentNode.insertBefore(wrapper, img);
-                    wrapper.appendChild(img);
-                    img.className += ' tilt-card-content rounded-lg shadow-lg';
-                });
-                
-                // 인용문에 글래스 효과 추가
-                const blockquotes = document.querySelectorAll('#reportContent blockquote');
-                blockquotes.forEach(quote => {
-                    quote.className += ' glass p-4 my-4 rounded-lg italic';
-                });
-            };
-        }
     </script>
 </body>
 </html>
