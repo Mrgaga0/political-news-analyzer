@@ -825,10 +825,104 @@ const generateArticleV2 = async (topic) => {
   });
 };
 
-// 유튜브 스크립트 생성 함수
-const generateArticleYoutube = async (topic) => {
+// 유튜브 스크립트 상태 폴링 함수
+function pollYoutubeScriptStatus(topic, maxAttempts = 30, interval = 5000) {
+  let attempts = 0;
+  
+  // 로딩 표시 (새로운 함수 사용)
+  showProgress('#report-content', 0, '유튜브 스크립트를 생성하고 있습니다...', {
+    maxAttempts: maxAttempts,
+    currentAttempt: attempts
+  });
+  
+  const checkStatus = () => {
+    attempts++;
+    console.log(`유튜브 스크립트 상태 확인 중... (시도 ${attempts}/${maxAttempts})`);
+    
+    // 서버에 상태 확인 요청
+    fetch(`/api/check-youtube-status/${topic.id}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log('상태 확인 응답:', data);
+      
+      // 진행도 업데이트 (새로운 함수 사용)
+      const progress = data.progress !== undefined ? data.progress : 0;
+      const status = data.status || '처리 중...';
+      
+      showProgress('#report-content', progress, status, {
+        maxAttempts: maxAttempts,
+        currentAttempt: attempts
+      });
+      
+      if (data.completed) {
+        // 생성 완료된 경우 내용 표시
+        console.log('유튜브 스크립트 생성 완료:', data);
+        setTimeout(() => {
+          displayArticle(data); // 완성된 스크립트 표시
+        }, 1000); // 완료 애니메이션을 보여주기 위해 짧은 지연 추가
+      } else if (attempts < maxAttempts) {
+        // 아직 생성 중인 경우 재시도
+        setTimeout(checkStatus, interval);
+      } else {
+        // 최대 시도 횟수 초과
+        reportContent.innerHTML = `
+          <div class="p-4 border border-red-200 bg-red-50 rounded">
+            <h3 class="text-lg font-semibold text-red-700">시간 초과</h3>
+            <p>유튜브 스크립트 생성이 예상보다 오래 걸리고 있습니다.</p>
+            <button id="retry-youtube-report" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+              다시 시도
+            </button>
+          </div>
+        `;
+        
+        document.getElementById('retry-youtube-report')?.addEventListener('click', () => {
+          generateArticleYoutube(topic);
+        });
+      }
+    })
+    .catch(error => {
+      console.error('유튜브 스크립트 상태 확인 중 오류:', error);
+      if (attempts < maxAttempts) {
+        setTimeout(checkStatus, interval);
+      } else {
+        showProgress('#report-content', 0, '오류가 발생했습니다', {
+          theme: 'error'
+        });
+        
+        setTimeout(() => {
+          reportContent.innerHTML = `
+            <div class="p-4 border border-red-200 bg-red-50 rounded">
+              <h3 class="text-lg font-semibold text-red-700">오류 발생</h3>
+              <p>유튜브 스크립트 상태 확인 중 문제가 발생했습니다.</p>
+              <button id="retry-youtube-report" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+                다시 시도
+              </button>
+            </div>
+          `;
+          
+          document.getElementById('retry-youtube-report')?.addEventListener('click', () => {
+            generateArticleYoutube(topic);
+          });
+        }, 1500);
+      }
+    });
+  };
+  
+  // 첫 번째 확인 시작
+  checkStatus();
+}
+
+// 유튜브 스크립트 생성 함수 수정
+function generateArticleYoutube(topic) {
   // 현재 선택된 토픽이 없으면 종료
   if (!topic) return;
+  
+  console.log('유튜브 스크립트 생성 요청 시작:', topic);
   
   // 로딩 상태 표시
   reportContent.innerHTML = `
@@ -850,73 +944,144 @@ const generateArticleYoutube = async (topic) => {
       searchResults: searchResults
     })
   })
-  .then(response => response.json())
+  .then(response => {
+    console.log('유튜브 API 응답 상태:', response.status);
+    return response.json();
+  })
   .then(data => {
-    // 기사 내용 표시
+    console.log('유튜브 API 응답 데이터:', data);
+    
+    // 응답 처리
     if (data.generatingInProgress) {
-      // 아직 생성 중인 경우
-      reportContent.innerHTML = `
-        <div class="text-center py-8">
-          <p class="text-xl mb-4">유튜브 스크립트를 생성하고 있습니다...</p>
-          <div class="spinner"></div>
-          <p class="mt-4 text-gray-500">첫 생성에는 30초~1분 정도 소요될 수 있습니다.</p>
-          <button id="refresh-youtube-report" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">
-            새로고침
-          </button>
-        </div>
-      `;
-      
-      // 새로고침 버튼 이벤트 연결
-      document.getElementById('refresh-youtube-report').addEventListener('click', () => {
-        generateArticleYoutube(topic);
-      });
-      
-    } else if (data.error) {
-      // 오류 발생 시
-      reportContent.innerHTML = `
-        <div class="p-4 border border-red-200 bg-red-50 rounded">
-          <h3 class="text-lg font-semibold text-red-700">오류 발생</h3>
-          <p>${data.error || '유튜브 스크립트를 생성하는 중 오류가 발생했습니다.'}</p>
-          <p>${data.message || ''}</p>
-          <button id="retry-youtube-report" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">
-            다시 시도
-          </button>
-        </div>
-      `;
-      
-      // 다시 시도 버튼 이벤트 연결
-      document.getElementById('retry-youtube-report').addEventListener('click', () => {
-        generateArticleYoutube(topic);
-      });
-      
+      console.log('스크립트 생성 중... 폴링 시작');
+      // 폴링 시작
+      pollYoutubeScriptStatus(topic);
     } else {
-      // 성공적으로 스크립트를 불러온 경우
+      // 이미 생성된 경우 바로 표시
+      console.log('이미 생성된 스크립트 표시');
       displayArticle(data);
-      
-      // 유튜브 스크립트에 특화된 UI 처리 추가
-      const scriptContainer = document.createElement('div');
-      scriptContainer.className = 'mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200';
-      scriptContainer.innerHTML = `
-        <div class="flex items-center mb-3">
-          <i class="fab fa-youtube text-red-600 text-2xl mr-2"></i>
-          <h3 class="text-lg font-bold">유튜브 영상 스크립트</h3>
-        </div>
-        <p class="text-sm text-gray-600 mb-4">이 스크립트는 약 8-10분 분량의 유튜브 영상용으로 작성되었습니다.</p>
-        <div class="flex justify-end">
-          <button id="copy-script" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm rounded flex items-center">
-            <i class="far fa-copy mr-1"></i> 스크립트 복사
-          </button>
-        </div>
-      `;
-      
-      // 스크립트 컨테이너를 reportContent의 맨 위에 추가
-      reportContent.insertBefore(scriptContainer, reportContent.firstChild);
-      
+    }
+  })
+  .catch(error => {
+    console.error('유튜브 스크립트 요청 오류:', error);
+    reportContent.innerHTML = `
+      <div class="p-4 border border-red-200 bg-red-50 rounded">
+        <h3 class="text-lg font-semibold text-red-700">오류 발생</h3>
+        <p>유튜브 스크립트를 불러오는 중 문제가 발생했습니다.</p>
+        <button id="retry-youtube-report" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">
+          다시 시도
+        </button>
+      </div>
+    `;
+    
+    document.getElementById('retry-youtube-report')?.addEventListener('click', () => {
+      generateArticleYoutube(topic);
+    });
+  });
+}
+
+// 기사 내용 표시 함수
+function displayArticle(article) {
+  // 표시할 내용이 없는 경우 처리
+  if (!article || (!article.content && !article.script)) {
+    reportContent.innerHTML = `
+      <div class="p-4 border border-red-200 bg-red-50 rounded">
+        <h3 class="text-lg font-semibold text-red-700">내용 없음</h3>
+        <p>표시할 내용이 없습니다. 다시 시도해주세요.</p>
+      </div>
+    `;
+    return;
+  }
+
+  console.log('기사 표시:', article);
+  
+  // 오류 발생 시 처리
+  if (article.error || article.hasError) {
+    reportContent.innerHTML = `
+      <div class="p-4 border border-red-200 bg-red-50 rounded">
+        <h3 class="text-lg font-semibold text-red-700">오류 발생</h3>
+        <p>${article.error || '내용을 불러오는 중 문제가 발생했습니다.'}</p>
+        <button id="retry-report" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">
+          다시 시도
+        </button>
+      </div>
+    `;
+    
+    // 다시 시도 버튼 이벤트 연결
+    document.getElementById('retry-report')?.addEventListener('click', () => {
+      const currentTopicElement = document.querySelector('.topic-item.selected');
+      if (currentTopicElement) {
+        const topicId = currentTopicElement.getAttribute('data-topic-id');
+        const topic = topics.find(t => t.id == topicId);
+        if (topic) {
+          if (article.isVersion2) {
+            generateArticleV2(topic);
+          } else if (article.title && article.title.includes('유튜브 스크립트')) {
+            generateArticleYoutube(topic);
+          } else {
+            generateArticle(topic);
+          }
+        }
+      }
+    });
+    
+    return;
+  }
+  
+  // 컨텐츠 표시
+  const content = article.content || (article.script ? article.script.content : '');
+  if (!content) {
+    reportContent.innerHTML = `
+      <div class="p-4 border border-red-200 bg-red-50 rounded">
+        <h3 class="text-lg font-semibold text-red-700">내용 없음</h3>
+        <p>표시할 내용이 없습니다. 다시 시도해주세요.</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // 제목 처리
+  const isYoutubeScript = article.title && article.title.includes('유튜브 스크립트');
+  const articleTitle = article.title || '제목 없음';
+  
+  // 본문 내용 표시
+  reportContent.innerHTML = `
+    <article class="prose prose-lg max-w-none">
+      <h1 class="text-2xl font-bold mb-4">${articleTitle}</h1>
+      <div class="article-content">
+        ${content}
+      </div>
+    </article>
+  `;
+  
+  // 유튜브 스크립트인 경우 추가 UI 요소
+  if (isYoutubeScript) {
+    // 유튜브 스크립트 컨테이너
+    const scriptContainer = document.createElement('div');
+    scriptContainer.className = 'mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200';
+    scriptContainer.innerHTML = `
+      <div class="flex items-center mb-3">
+        <i class="fab fa-youtube text-red-600 text-2xl mr-2"></i>
+        <h3 class="text-lg font-bold">유튜브 영상 스크립트</h3>
+      </div>
+      <p class="text-sm text-gray-600 mb-4">이 스크립트는 약 8-10분 분량의 유튜브 영상용으로 작성되었습니다.</p>
+      <div class="flex justify-end">
+        <button id="copy-script" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm rounded flex items-center">
+          <i class="far fa-copy mr-1"></i> 스크립트 복사
+        </button>
+      </div>
+    `;
+    
+    // 스크립트 컨테이너를 reportContent의 맨 위에 추가
+    const articleElement = reportContent.querySelector('article');
+    if (articleElement) {
+      articleElement.insertBefore(scriptContainer, articleElement.firstChild);
+    
       // 복사 버튼 기능 추가
-      document.getElementById('copy-script').addEventListener('click', () => {
+      document.getElementById('copy-script')?.addEventListener('click', () => {
         // HTML 태그를 제외한 텍스트만 복사
         const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = data.content;
+        tempDiv.innerHTML = content;
         const textOnly = tempDiv.textContent || tempDiv.innerText || '';
         
         navigator.clipboard.writeText(textOnly).then(() => {
@@ -927,95 +1092,71 @@ const generateArticleYoutube = async (topic) => {
         });
       });
     }
-  })
-  .catch(error => {
-    console.error('유튜브 스크립트 불러오기 오류:', error);
-    reportContent.innerHTML = `
-      <div class="p-4 border border-red-200 bg-red-50 rounded">
-        <h3 class="text-lg font-semibold text-red-700">오류 발생</h3>
-        <p>유튜브 스크립트를 불러오는 중 문제가 발생했습니다: ${error.message}</p>
-        <button id="retry-youtube-report" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">
-          다시 시도
-        </button>
-      </div>
-    `;
-    
-    // 다시 시도 버튼 이벤트 연결
-    document.getElementById('retry-youtube-report').addEventListener('click', () => {
-      generateArticleYoutube(topic);
-    });
-  });
-};
-
-// 기사 내용 표시 함수
-const displayArticle = (articleData) => {
-  // 기사 내용 설정
-  reportContent.innerHTML = articleData.content;
-  
-  // 기사 제목 업데이트 (v2 버전인 경우 변경될 수 있음)
-  if (articleData.title && articleData.isVersion2) {
-    reportTitle.textContent = articleData.title;
   }
   
   // 관련 뉴스 표시
-  if (articleData.relatedNews && articleData.relatedNews.length > 0) {
-    // 관련 뉴스 섹션 생성
-    renderRelatedNews(articleData.relatedNews);
+  if (article.relatedNews && article.relatedNews.length > 0) {
+    const relatedNewsContainer = document.createElement('div');
+    relatedNewsContainer.className = 'mt-8 p-4 bg-gray-50 rounded-lg';
     
-    // 관련 뉴스 섹션 스타일링
-    const relatedNewsSection = document.getElementById('relatedNews').parentNode;
-    if (relatedNewsSection) {
-      relatedNewsSection.className = 'mt-8 p-6 glass rounded-2xl bg-gradient-to-br from-gray-50 to-white';
-    }
-  } else {
-    // 관련 뉴스가 없는 경우
-    relatedNews.innerHTML = '<p class="text-gray-500">관련 뉴스가 없습니다.</p>';
+    const relatedNewsTitle = document.createElement('h3');
+    relatedNewsTitle.className = 'text-xl font-semibold mb-3';
+    relatedNewsTitle.textContent = '관련 뉴스';
+    
+    const relatedNewsList = document.createElement('ul');
+    relatedNewsList.className = 'space-y-2';
+    
+    article.relatedNews.slice(0, 5).forEach(news => {
+      const listItem = document.createElement('li');
+      listItem.className = 'flex items-start';
+      
+      const icon = document.createElement('i');
+      icon.className = 'fas fa-newspaper text-blue-500 mt-1 mr-2';
+      
+      const newsContent = document.createElement('div');
+      newsContent.className = 'flex-1';
+      
+      const newsTitle = document.createElement('a');
+      newsTitle.className = 'font-medium hover:text-blue-600';
+      newsTitle.textContent = news.title || '제목 없음';
+      if (news.url) {
+        newsTitle.href = news.url;
+        newsTitle.target = '_blank';
+        newsTitle.rel = 'noopener noreferrer';
+      }
+      
+      const newsInfo = document.createElement('p');
+      newsInfo.className = 'text-sm text-gray-600';
+      newsInfo.textContent = `${news.source || '출처 미상'} · ${news.time || '날짜 불명'}`;
+      
+      newsContent.appendChild(newsTitle);
+      newsContent.appendChild(newsInfo);
+      
+      listItem.appendChild(icon);
+      listItem.appendChild(newsContent);
+      
+      relatedNewsList.appendChild(listItem);
+    });
+    
+    relatedNewsContainer.appendChild(relatedNewsTitle);
+    relatedNewsContainer.appendChild(relatedNewsList);
+    
+    // 관련 뉴스 컨테이너를 추가
+    reportContent.appendChild(relatedNewsContainer);
   }
   
   // 생성 시간 표시
-  if (articleData.generatedAt) {
-    const generatedDate = new Date(articleData.generatedAt);
-    const formattedGeneratedDate = new Intl.DateTimeFormat('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(generatedDate);
+  if (article.generatedAt) {
+    const generatedDate = new Date(article.generatedAt);
+    const formattedDate = `${generatedDate.toLocaleDateString()} ${generatedDate.toLocaleTimeString()}`;
     
-    const generatedAtDiv = document.createElement('div');
-    generatedAtDiv.className = 'text-right text-sm text-gray-400 mt-4';
-    generatedAtDiv.textContent = `생성 시간: ${formattedGeneratedDate}`;
+    const generatedInfo = document.createElement('div');
+    generatedInfo.className = 'mt-4 text-sm text-gray-500 text-right';
+    generatedInfo.textContent = `생성 시간: ${formattedDate}`;
     
-    // 생성 시간을 관련 뉴스 섹션 하단에 추가
-    const relatedNewsSection = document.getElementById('relatedNews').parentNode;
-    if (relatedNewsSection) {
-      relatedNewsSection.appendChild(generatedAtDiv);
-    }
+    reportContent.appendChild(generatedInfo);
   }
-  
-  // 버전 정보 표시 (v2인 경우)
-  if (articleData.isVersion2) {
-    const versionBadge = document.createElement('div');
-    versionBadge.className = 'inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full ml-2';
-    versionBadge.textContent = 'MZ 버전';
-    reportTitle.appendChild(versionBadge);
-  }
-  
-  // 콘텐츠에 shimmer 효과 적용
-  try {
-    applyShimmerToContent();
-  } catch (error) {
-    console.warn('shimmer 효과 적용 중 오류:', error);
-  }
-  
-  // 콘솔에 로그 출력하여 디버깅
-  console.log('기사가 표시되었습니다:', {
-    contentLength: articleData.content.length,
-    hasRelatedNews: articleData.relatedNews && articleData.relatedNews.length > 0,
-    title: articleData.title || reportTitle.textContent
-  });
-};
+}
 
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', () => {
@@ -1179,9 +1320,119 @@ function addClearCacheButton() {
     console.log('캐시 삭제 버튼이 추가되었습니다');
 }
 
-// 애플 스타일 로딩 인디케이터 추가
-function addAppleStyleLoadingIndicator() {
-    // 로딩 인디케이터용 스타일 추가
+// 메시지 표시 함수 개선
+function showMessage(message, type = 'info') {
+    const messageContainer = document.getElementById('message-container');
+    if (!messageContainer) {
+        // 메시지 컨테이너가 없으면 생성
+        const newContainer = document.createElement('div');
+        newContainer.id = 'message-container';
+        newContainer.className = 'mt-3';
+        
+        const appContainer = document.querySelector('#app');
+        const topicsContainer = document.querySelector('#topics-container');
+        
+        if (topicsContainer) {
+            appContainer.insertBefore(newContainer, topicsContainer);
+        } else {
+            appContainer.appendChild(newContainer);
+        }
+    }
+    
+    // 기존 메시지 제거
+    document.getElementById('message-container').innerHTML = '';
+    
+    // 새 메시지 추가
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    messageDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    document.getElementById('message-container').appendChild(messageDiv);
+    
+    // 일정 시간 후 자동으로 사라지게 설정
+    setTimeout(() => {
+        try {
+            const alert = new bootstrap.Alert(messageDiv);
+            alert.close();
+        } catch (e) {
+            messageDiv.remove();
+        }
+    }, 5000);
+}
+
+// 날짜 기반 뉴스 분석 함수
+function analyzeNewsByDate(selectedDate) {
+    // 로딩 상태 표시
+    showLoading('선택한 날짜의 뉴스를 분석 중입니다...');
+    
+    // 날짜 기반 분석 API 호출
+    fetch('/api/analyze-by-date', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ targetDate: selectedDate })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || '날짜 기반 분석 중 오류가 발생했습니다.');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('날짜 기반 분석 결과:', data);
+        
+        // 검색 시작 버튼 상태 변경
+        const searchBtn = document.getElementById('search-btn');
+        searchBtn.disabled = false;
+        searchBtn.textContent = '분석 시작';
+        
+        // 로딩 상태 숨김
+        hideLoading();
+        
+        // 결과가 없으면 안내 메시지 표시
+        if (!data.topics || data.topics.length === 0) {
+            showMessage('선택한 날짜에 대한 분석 결과가 없습니다. 다른 날짜를 선택해보세요.');
+            return;
+        }
+        
+        // 주제 표시
+        showTopics(data.topics, selectedDate);
+        
+        // 분석이 완료되었음을 안내
+        showMessage(`${new Date(selectedDate).toLocaleDateString('ko-KR', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            weekday: 'long'
+        })} 기준 뉴스 분석이 완료되었습니다.`, 'success');
+    })
+    .catch(error => {
+        console.error('날짜 기반 분석 오류:', error);
+        
+        // 검색 시작 버튼 상태 변경
+        const searchBtn = document.getElementById('search-btn');
+        searchBtn.disabled = false;
+        searchBtn.textContent = '분석 시작';
+        
+        // 로딩 상태 숨김
+        hideLoading();
+        
+        // 오류 메시지 표시
+        showMessage(error.message || '날짜 기반 분석 중 오류가 발생했습니다.', 'danger');
+    });
+}
+
+// 캐시 삭제 함수
+async function clearCache() {
+    console.log('캐시 삭제 함수 호출됨');
+    
+    // 애플 스타일 로딩 인디케이터 스타일 추가
     if (!document.getElementById('apple-loader-style')) {
         const style = document.createElement('style');
         style.id = 'apple-loader-style';
@@ -1204,14 +1455,6 @@ function addAppleStyleLoadingIndicator() {
         `;
         document.head.appendChild(style);
     }
-}
-
-// 캐시 삭제 함수
-async function clearCache() {
-    console.log('캐시 삭제 함수 호출됨');
-    
-    // 애플 스타일 로딩 인디케이터 스타일 추가
-    addAppleStyleLoadingIndicator();
     
     // 캐시 삭제 버튼
     const clearCacheBtn = document.getElementById('clear-cache-btn');
@@ -1350,110 +1593,213 @@ async function clearCache() {
     }
 }
 
-// 메시지 표시 함수 개선
-function showMessage(message, type = 'info') {
-    const messageContainer = document.getElementById('message-container');
-    if (!messageContainer) {
-        // 메시지 컨테이너가 없으면 생성
-        const newContainer = document.createElement('div');
-        newContainer.id = 'message-container';
-        newContainer.className = 'mt-3';
-        
-        const appContainer = document.querySelector('#app');
-        const topicsContainer = document.querySelector('#topics-container');
-        
-        if (topicsContainer) {
-            appContainer.insertBefore(newContainer, topicsContainer);
-        } else {
-            appContainer.appendChild(newContainer);
-        }
+// 애플 스타일 로딩 인디케이터 추가
+function addAppleStyleLoadingIndicator() {
+    // 로딩 인디케이터용 스타일 추가
+    if (!document.getElementById('apple-loader-style')) {
+        const style = document.createElement('style');
+        style.id = 'apple-loader-style';
+        style.textContent = `
+            .apple-loader {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                border-top-color: white;
+                animation: apple-spin 1s linear infinite;
+                display: inline-block;
+                vertical-align: middle;
+                margin-right: 8px;
+            }
+            
+            @keyframes apple-spin {
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
     }
-    
-    // 기존 메시지 제거
-    document.getElementById('message-container').innerHTML = '';
-    
-    // 새 메시지 추가
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `alert alert-${type} alert-dismissible fade show`;
-    messageDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    
-    document.getElementById('message-container').appendChild(messageDiv);
-    
-    // 일정 시간 후 자동으로 사라지게 설정
-    setTimeout(() => {
-        try {
-            const alert = new bootstrap.Alert(messageDiv);
-            alert.close();
-        } catch (e) {
-            messageDiv.remove();
-        }
-    }, 5000);
 }
 
-// 날짜 기반 뉴스 분석 함수
-function analyzeNewsByDate(selectedDate) {
-    // 로딩 상태 표시
-    showLoading('선택한 날짜의 뉴스를 분석 중입니다...');
-    
-    // 날짜 기반 분석 API 호출
-    fetch('/api/analyze-by-date', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ targetDate: selectedDate })
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(data => {
-                throw new Error(data.error || '날짜 기반 분석 중 오류가 발생했습니다.');
-            });
-        }
-        return response.json();
-    })
-    .then(data => {
-        console.log('날짜 기반 분석 결과:', data);
-        
-        // 검색 시작 버튼 상태 변경
-        const searchBtn = document.getElementById('search-btn');
-        searchBtn.disabled = false;
-        searchBtn.textContent = '분석 시작';
-        
-        // 로딩 상태 숨김
-        hideLoading();
-        
-        // 결과가 없으면 안내 메시지 표시
-        if (!data.topics || data.topics.length === 0) {
-            showMessage('선택한 날짜에 대한 분석 결과가 없습니다. 다른 날짜를 선택해보세요.');
-            return;
-        }
-        
-        // 주제 표시
-        showTopics(data.topics, selectedDate);
-        
-        // 분석이 완료되었음을 안내
-        showMessage(`${new Date(selectedDate).toLocaleDateString('ko-KR', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric',
-            weekday: 'long'
-        })} 기준 뉴스 분석이 완료되었습니다.`, 'success');
-    })
-    .catch(error => {
-        console.error('날짜 기반 분석 오류:', error);
-        
-        // 검색 시작 버튼 상태 변경
-        const searchBtn = document.getElementById('search-btn');
-        searchBtn.disabled = false;
-        searchBtn.textContent = '분석 시작';
-        
-        // 로딩 상태 숨김
-        hideLoading();
-        
-        // 오류 메시지 표시
-        showMessage(error.message || '날짜 기반 분석 중 오류가 발생했습니다.', 'danger');
-    });
+// 진행 상태 표시 함수
+function showProgress(container, progress, status, options = {}) {
+  const {
+    showIcon = true,
+    theme = 'default',
+    maxAttempts = 0,
+    currentAttempt = 0
+  } = options;
+  
+  // 적절한 테마 클래스 결정
+  let themeClass = '';
+  let iconHTML = '';
+  
+  if (progress < 30) {
+    themeClass = 'ae-light';
+    iconHTML = '<i class="fas fa-sync fa-spin progress-icon"></i>';
+  } else if (progress < 70) {
+    themeClass = 'ae-warning';
+    iconHTML = '<i class="fas fa-cog fa-spin progress-icon"></i>';
+  } else if (progress < 100) {
+    themeClass = 'ae-success';
+    iconHTML = '<i class="fas fa-spinner fa-spin progress-icon"></i>';
+  } else {
+    themeClass = 'ae-success progress-complete';
+    iconHTML = '<i class="fas fa-check progress-icon"></i>';
+  }
+  
+  // 오류 상태인 경우
+  if (status && status.toLowerCase().includes('오류')) {
+    themeClass = 'ae-error';
+    iconHTML = '<i class="fas fa-exclamation-triangle progress-icon"></i>';
+  }
+  
+  const element = document.querySelector(container);
+  if (!element) return;
+  
+  // 최대 시도 횟수 정보 표시
+  let attemptsInfo = '';
+  if (maxAttempts > 0) {
+    attemptsInfo = `<p class="text-gray-500 mt-2">진행 중... (시도: ${currentAttempt}/${maxAttempts})</p>`;
+  }
+  
+  element.innerHTML = `
+    <div class="text-center py-8">
+      <p class="text-xl mb-4">${status || '처리 중...'}</p>
+      <div class="progress-container mb-4">
+        <div class="progress-bar ${themeClass}" style="width: ${progress}%;">
+          ${showIcon ? iconHTML : ''}${progress}%
+        </div>
+      </div>
+      <p class="status-message">${status || '진행 중...'}</p>
+      ${attemptsInfo}
+    </div>
+  `;
 }
+
+// 검색 시작 시 진행 상태 표시하는 함수
+function showSearchProgress() {
+  const container = document.getElementById('app');
+  
+  // 기존 콘텐츠를 보존하면서 진행 상태 컨테이너 추가
+  const progressContainer = document.createElement('div');
+  progressContainer.id = 'search-progress-container';
+  progressContainer.className = 'my-8';
+  
+  // 기존 주제 컨테이너 앞에 삽입
+  const topicsContainer = document.getElementById('topics-container');
+  if (topicsContainer) {
+    container.insertBefore(progressContainer, topicsContainer);
+  } else {
+    container.appendChild(progressContainer);
+  }
+  
+  // 초기 진행 상태 표시
+  updateSearchProgress(5, '검색어 생성 중...');
+  
+  // 단계적으로 진행 상태 업데이트 (가상의 진행 상태)
+  setTimeout(() => updateSearchProgress(15, 'RSS 피드 가져오는 중...'), 1000);
+  setTimeout(() => updateSearchProgress(30, '외부 데이터 수집 중...'), 3000);
+  setTimeout(() => updateSearchProgress(50, '주제 생성 준비 중...'), 5000);
+  setTimeout(() => updateSearchProgress(70, '주제 분석 중...'), 7000);
+  setTimeout(() => updateSearchProgress(90, '최종 결과 준비 중...'), 9000);
+}
+
+// 검색 진행 상태 업데이트 함수
+function updateSearchProgress(progress, status) {
+  showProgress('#search-progress-container', progress, status);
+}
+
+// 검색 진행 상태 숨기기 함수
+function hideSearchProgress() {
+  const progressContainer = document.getElementById('search-progress-container');
+  if (progressContainer) {
+    // 완료 상태로 표시 후 페이드아웃
+    showProgress('#search-progress-container', 100, '분석 완료!');
+    
+    // 2초 후 제거
+    setTimeout(() => {
+      progressContainer.style.transition = 'opacity 0.5s ease';
+      progressContainer.style.opacity = '0';
+      setTimeout(() => {
+        progressContainer.remove();
+      }, 500);
+    }, 2000);
+  }
+}
+
+// 검색 버튼 클릭 이벤트 핸들러
+document.getElementById('search-btn')?.addEventListener('click', function() {
+  // 버튼 상태 변경
+  this.disabled = true;
+  this.textContent = '분석 중...';
+  
+  // 검색 진행 상태 표시
+  showSearchProgress();
+  
+  // 날짜 선택 유무에 따라 처리 (날짜 선택기가 있는 경우)
+  const datePicker = document.getElementById('date-picker');
+  if (datePicker && datePicker.value) {
+    analyzeNewsByDate(datePicker.value);
+    return;
+  }
+  
+  // 일반 뉴스 분석 시작
+  fetch('/api/analyze-news', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({})
+  })
+  .then(response => {
+    if (!response.ok) {
+      return response.json().then(data => {
+        throw new Error(data.error || '분석 중 오류가 발생했습니다.');
+      });
+    }
+    return response.json();
+  })
+  .then(data => {
+    console.log('분석 결과:', data);
+    
+    // 검색 시작 버튼 상태 변경
+    const searchBtn = document.getElementById('search-btn');
+    searchBtn.disabled = false;
+    searchBtn.textContent = '분석 시작';
+    
+    // 진행 상태 표시 숨기기
+    hideSearchProgress();
+    
+    // 로딩 상태 숨김
+    hideLoading();
+    
+    // 결과가 없으면 안내 메시지 표시
+    if (!data.topics || data.topics.length === 0) {
+      showMessage('분석 결과가 없습니다. 다시 시도해보세요.');
+      return;
+    }
+    
+    // 주제 표시
+    showTopics(data.topics);
+    
+    // 분석이 완료되었음을 안내
+    showMessage('최신 뉴스 분석이 완료되었습니다.', 'success');
+  })
+  .catch(error => {
+    console.error('분석 오류:', error);
+    
+    // 검색 시작 버튼 상태 변경
+    const searchBtn = document.getElementById('search-btn');
+    searchBtn.disabled = false;
+    searchBtn.textContent = '분석 시작';
+    
+    // 진행 상태 표시 숨기기
+    hideSearchProgress();
+    
+    // 로딩 상태 숨김
+    hideLoading();
+    
+    // 오류 메시지 표시
+    showMessage(error.message || '분석 중 오류가 발생했습니다.', 'danger');
+  });
+});

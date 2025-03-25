@@ -41,8 +41,6 @@ const rssFeedUrls = [
   'https://foreignpolicy.com/feed/',
   'http://feeds.washingtonpost.com/rss/world',
   'https://www.washingtonpost.com/politics/rss/',
-  'http://rss.cnn.com/rss/money_topstories.rss',
-  'http://rss.cnn.com/rss/money_news_international.rss',
   
   // CNN
   'http://rss.cnn.com/rss/cnn_allpolitics.rss',
@@ -105,42 +103,6 @@ const rssFeedUrls = [
   'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=08&plink=RSSREADER',
   // JTBC
   'https://fs.jtbc.co.kr/RSS/newsflash.xml',
-  // KBS World
-  'http://world.kbs.co.kr/rss/rss_news.htm?lang=e',
-  'http://world.kbs.co.kr/rss/rss_news.htm?lang=e&id=Po',
-  'http://world.kbs.co.kr/rss/rss_news.htm?lang=e&id=Ec',
-  'http://world.kbs.co.kr/rss/rss_news.htm?lang=e&id=IK',
-  'http://world.kbs.co.kr/rss/rss_news.htm?lang=e&id=In',
-  'http://world.kbs.co.kr/rss/rss_news.htm?lang=e&id=Dm',
-  
-  // SBS
-  'https://news.sbs.co.kr/news/headlineRssFeed.do?plink=RSSREADER',
-  'https://news.sbs.co.kr/news/newsflashRssFeed.do?plink=RSSREADER',
-  'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01&plink=RSSREADER',
-  'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02&plink=RSSREADER',
-  'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=07&plink=RSSREADER',
-  
-  // 연합뉴스TV
-  'http://www.yonhapnewstv.co.kr/category/news/politics/feed/',
-  'http://www.yonhapnewstv.co.kr/category/news/economy/feed/',
-  'http://www.yonhapnewstv.co.kr/category/news/international/feed/',
-  
-  // JTBC
-  'https://news-ex.jtbc.co.kr/v1/get/rss/section/10',
-  'https://news-ex.jtbc.co.kr/v1/get/rss/section/20',
-  'https://news-ex.jtbc.co.kr/v1/get/rss/section/30',
-  'https://news-ex.jtbc.co.kr/v1/get/rss/section/40',
-  
-  // 조선일보
-  'https://www.chosun.com/arc/outboundfeeds/rss/category/politics/?outputType=xml',
-  'https://www.chosun.com/arc/outboundfeeds/rss/category/economy/?outputType=xml',
-  'https://www.chosun.com/arc/outboundfeeds/rss/category/international/?outputType=xml',
-  'https://www.chosun.com/arc/outboundfeeds/rss/category/national/?outputType=xml',
-  
-  // 동아일보
-  'https://rss.donga.com/politics.xml',
-  'https://rss.donga.com/economy.xml',
-  'https://rss.donga.com/international.xml'
 ];
 
 // RSS 피드를 파싱하는 함수
@@ -1090,7 +1052,7 @@ app.post('/api/analyze', async (req, res) => {
     const resultsToUse = [
       ...recentArticles,
       ...uniqueResults.filter(article => !recentArticles.includes(article))
-    ]; // 제한 제거
+    ].slice(0, 40); // 최대 40개만 사용
     
     // 주제 분석 및 생성 실행
     const responseData = await analyzeAndGenerateTopics(resultsToUse);
@@ -2701,52 +2663,6 @@ async function generateTopicsFromResults(searchResults) {
         // 함수나 undefined 등 JSON으로 직렬화할 수 없는 값 처리
         if (typeof value === 'function' || typeof value === 'undefined') {
           return null;
-        }
-        
-        // 객체를 primitive 값으로 변환하는 과정에서 오류 방지
-        if (typeof value === 'object' && value !== null) {
-          // toString 메서드가 있고 Object.prototype의 toString이 아닌 경우 문자열 변환 시도
-          if (typeof value.toString === 'function' && value.toString !== Object.prototype.toString) {
-            try {
-              const str = value.toString();
-              if (typeof str === 'string') {
-                return str;
-              }
-            } catch (e) {
-              // toString 호출 중 오류 발생시 기본값 반환
-              return '[Object]';
-            }
-          }
-          
-          // valueOf 메서드가 있고 Object.prototype의 valueOf가 아닌 경우 primitive 값 반환 시도
-          if (typeof value.valueOf === 'function' && value.valueOf !== Object.prototype.valueOf) {
-            try {
-              const val = value.valueOf();
-              if (typeof val !== 'object') {
-                return val;
-              }
-            } catch (e) {
-              // valueOf 호출 중 오류 발생시 기본값 반환
-              return '[Object]';
-            }
-          }
-          
-          // 특수한 타입의 객체 처리 (Symbol, BigInt 등을 문자열로 변환)
-          try {
-            if (typeof value[Symbol.toPrimitive] === 'function') {
-              return String(value[Symbol.toPrimitive]('string'));
-            }
-          } catch (e) {
-            // toPrimitive 변환 실패시 무시
-          }
-          
-          // 키-값 쌍이 있는 객체는 그대로 유지
-          if (Object.keys(value).length > 0) {
-            return value;
-          }
-          
-          // 그 외의 경우 안전한 문자열로 대체
-          return '[Object]';
         }
         
         return value;
