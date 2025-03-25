@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>글로벌 인사이트 - 국제 정치 뉴스 분석 플랫폼</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --primary: #0071e3;
+            --primary-dark: #0058b9;
+            --primary-light: #4ca8ff;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.25);
+            --glass-shadow: rgba(0, 113, 227, 0.2);
+            --apple-gray: #f5f5f7;
+            --apple-text: #1d1d1f;
+            --apple-caption: #86868b;
+        }
+        
+        body {
+            font-family: 'SF Pro Display', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--apple-gray);
+            color: var(--apple-text);
+            overflow-x: hidden;
+            position: relative;
+            letter-spacing: -0.022em;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* 애니메이션 배경 */
+        .animated-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            background: linear-gradient(135deg, var(--apple-gray) 0%, #ffffff 100%);
+        }
+        
+        .animated-bg::before,
+        .animated-bg::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.25;
+            animation: float 25s infinite ease-in-out;
+        }
+        
+        .animated-bg::before {
+            top: 10%;
+            left: 10%;
+            width: 40vw;
+            height: 40vw;
+            background: radial-gradient(circle, rgba(0, 113, 227, 0.4) 0%, rgba(0, 113, 227, 0.1) 70%, transparent 100%);
+            animation-delay: 0s;
+        }
+        
+        .animated-bg::after {
+            bottom: 10%;
+            right: 10%;
+            width: 60vw;
+            height: 60vw;
+            background: radial-gradient(circle, rgba(165, 80, 233, 0.2) 0%, rgba(0, 113, 227, 0.1) 70%, transparent 100%);
+            animation-delay: -10s;
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            25% {
+                transform: translate(3%, 2%) scale(1.05);
+            }
+            50% {
+                transform: translate(1%, -2%) scale(0.95);
+            }
+            75% {
+                transform: translate(-2%, 1%) scale(1.02);
+            }
+        }
+        
+        /* 글래스모피즘 효과 */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 10px 30px -5px var(--glass-shadow);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        /* 애플 스타일 카드 효과 */
+        .tilt-card {
+            transform-style: preserve-3d;
+            perspective: 1000px;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            border-radius: 20px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 
+                0 2px 8px rgba(0, 0, 0, 0.05),
+                0 20px 30px -10px rgba(0, 0, 0, 0.08);
+        }
+        
+        .tilt-card-content {
+            transform: translateZ(20px);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .tilt-card:hover {
+            transform: scale(1.02) translateY(-5px);
+            box-shadow: 
+                0 5px 15px rgba(0, 0, 0, 0.08),
+                0 25px 50px -12px rgba(0, 0, 0, 0.12);
+        }
+        
+        .tilt-card:hover .tilt-card-content {
+            transform: translateZ(40px);
+        }
+        
+        /* 스크롤 애니메이션 */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), 
+                        transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .fade-in.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .delay-100 { transition-delay: 0.1s; }
+        .delay-200 { transition-delay: 0.2s; }
+        .delay-300 { transition-delay: 0.3s; }
+        .delay-400 { transition-delay: 0.4s; }
+        .delay-500 { transition-delay: 0.5s; }
+        
+        /* 그라데이션 텍스트 */
+        .gradient-text {
+            background: linear-gradient(90deg, var(--primary), #50a3ff, #a550e9);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: gradient-shift 8s ease infinite;
+            background-size: 200% auto;
+        }
+        
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* 애플 스타일 버튼 */
+        .apple-button {
+            background-color: var(--primary);
+            color: white;
+            border-radius: 980px;
+            padding: 12px 22px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            border: none;
+            outline: none;
+            cursor: pointer;
+            text-align: center;
+            transform: translateY(0);
+            box-shadow: 0 4px 8px rgba(0, 113, 227, 0.3);
+        }
+        
+        .apple-button:hover {
+            background-color: var(--primary-light);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0, 113, 227, 0.4);
+        }
+        
+        .apple-button:active {
+            background-color: var(--primary-dark);
+            transform: translateY(1px);
+            box-shadow: 0 2px 5px rgba(0, 113, 227, 0.2);
+        }
+        
+        /* 텍스트 효과 */
+        .shimmer-text {
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .shimmer-text:hover {
+            background: linear-gradient(
+                90deg, 
+                var(--primary) 0%, 
+                var(--primary-light) 50%, 
+                var(--primary) 100%
+            );
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: text-shimmer 3s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+            text-shadow: 0 0 10px rgba(0, 113, 227, 0.15);
+        }
+        
+        @keyframes text-shimmer {
+            0% { background-position: -100% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        /* 토픽 카드 */
+        .topic-card {
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        
+        .topic-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 
+                0 12px 20px rgba(0, 0, 0, 0.06),
+                0 20px 30px -10px rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 113, 227, 0.1);
+        }
+        
+        .topic-card:hover .shimmer-text {
+            animation: text-shimmer 3s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+        }
+        
+        /* 뉴스 아이템 */
+        .news-item {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.04);
+        }
+        
+        .news-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+            border-color: rgba(0, 113, 227, 0.1);
+        }
+        
+        /* 스크롤바 커스터마이징 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.03);
+            border-radius: 6px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 113, 227, 0.3);
+            border-radius: 6px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 113, 227, 0.5);
+        }
+        
+        /* 로딩 스피너 */
+        .spinner {
+            border-radius: 50%;
+            border: 2px solid rgba(0, 113, 227, 0.2);
+            border-top-color: var(--primary);
+            animation: spin 0.8s linear infinite;
+            width: 30px;
+            height: 30px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 3D 그림자 효과 */
+        .shadow-3d {
+            position: relative;
+        }
+        
+        .shadow-3d::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            opacity: 0.25;
+            filter: blur(15px);
+            background: linear-gradient(135deg, rgba(0, 113, 227, 0.8), rgba(165, 80, 233, 0.8));
+            transform: translateY(10px) scale(0.95);
+            border-radius: inherit;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .shadow-3d:hover::after {
+            opacity: 0.35;
+            transform: translateY(15px) scale(0.92);
+            filter: blur(20px);
+        }
+        
+        /* 애플 스타일 내비게이션 */
+        .apple-nav {
+            font-weight: 400;
+            font-size: 14px;
+            letter-spacing: -0.01em;
+        }
+        
+        .apple-nav a {
+            transition: color 0.3s ease;
+            position: relative;
+        }
+        
+        .apple-nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: var(--primary);
+            transform: scaleX(0);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .apple-nav a:hover {
+            color: var(--primary);
+        }
+        
+        .apple-nav a:hover::after {
+            transform: scaleX(1);
+        }
+    </style>
+</head>
+<body>
+    <!-- 애니메이션 배경 추가 -->
+    <div class="animated-bg"></div>
+    
+    <div id="app" class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="sticky top-0 z-50 glass">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div>
+                    <a href="#" class="text-2xl font-semibold gradient-text flex items-center gap-2" onclick="showHomePage()">
+                        <i class="fas fa-globe-asia"></i> 글로벌 인사이트
+                    </a>
+                </div>
+                <nav class="apple-nav hidden md:flex space-x-6">
+                    <a href="#" onclick="showHomePage()">홈</a>
+                    <a href="#archive" onclick="showArchivePage()">아카이브</a>
+                    <a href="https://github.com/yourusername/political-news-analyzer" target="_blank">GitHub</a>
+                </nav>
+                <div class="flex items-center space-x-3">
+                    <button class="hidden md:block apple-button text-sm" id="analyzeButton">
+                        <i class="fas fa-search mr-2"></i>분석 시작
+                    </button>
+                    <button class="md:hidden p-2 rounded-full bg-white shadow">
+                        <i class="fas fa-bars text-gray-600"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Content Area -->
+        <main class="flex-grow container mx-auto px-4 md:px-6 py-10">
+            <!-- Home Page -->
+            <div id="homePage" class="min-h-[70vh]">
+                <div class="text-center mb-16 max-w-4xl mx-auto fade-in">
+                    <h1 class="text-4xl md:text-5xl font-bold mb-6 gradient-text">국제 정치 뉴스 인사이트</h1>
+                    <p class="text-lg md:text-xl text-gray-600 mb-8">최신 해외 정치 뉴스를 AI가 자동으로 분석하여 중요 이슈와 쟁점을 요약해 드립니다.</p>
+                    <button class="apple-button text-lg shadow-3d md:hidden" id="mobileAnalyzeButton">
+                        <i class="fas fa-search mr-2"></i>분석 시작
+                    </button>
+                </div>
+
+                <div id="loadingState" class="hidden max-w-5xl mx-auto p-8 glass rounded-2xl shadow-lg mb-8">
+                    <div class="flex items-center space-x-4 mb-6">
+                        <div class="animate-pulse h-4 w-16 bg-blue-200 rounded-full"></div>
+                        <div class="animate-pulse h-4 w-24 bg-gray-200 rounded-full"></div>
+                        <div class="animate-pulse h-4 w-20 bg-gray-200 rounded-full"></div>
+                    </div>
+                    <div class="space-y-6">
+                        <div class="animate-pulse h-8 w-3/4 bg-gray-200 rounded-full mb-2"></div>
+                        <div class="animate-pulse h-4 w-full bg-gray-200 rounded-full"></div>
+                        <div class="animate-pulse h-4 w-full bg-gray-200 rounded-full"></div>
+                        <div class="animate-pulse h-4 w-2/3 bg-gray-200 rounded-full"></div>
+                        <div class="flex justify-center mt-8">
+                            <div class="spinner"></div>
+                        </div>
+                        <div class="text-center text-sm text-gray-500 mt-4">국제 정치 이슈를 분석하고 있습니다...</div>
+                    </div>
+                </div>
+
+                <div id="topicsList" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+                    <!-- Topics will be generated here -->
+                </div>
+            </div>
+
+            <!-- Report Page -->
+            <div id="reportPage" class="hidden max-w-6xl mx-auto px-4 pb-20">
+                <!-- Report Header -->
+                <div class="mb-8 glass p-6 rounded-3xl shadow-3d report-header">
+                    <div class="flex items-center mb-4">
+                        <button onclick="showHomePage()" class="mr-4 p-2 rounded-full bg-white shadow hover:bg-gray-50 transition">
+                            <i class="fas fa-arrow-left text-gray-600"></i>
+                        </button>
+                        <h1 id="reportTitle" class="text-2xl md:text-3xl font-bold gradient-text"></h1>
+                    </div>
+                    <div class="flex flex-wrap justify-between items-center">
+                        <p id="reportDate" class="text-sm text-gray-500"></p>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 rounded-full text-sm bg-gray-100 hover:bg-gray-200 transition">
+                                <i class="fas fa-share-alt mr-1"></i> 공유
+                            </button>
+                            <button class="px-3 py-1 rounded-full text-sm bg-gray-100 hover:bg-gray-200 transition">
+                                <i class="fas fa-print mr-1"></i> 인쇄
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Report Content -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    <div class="md:col-span-9">
+                        <div id="reportContent" class="glass p-8 rounded-3xl shadow-lg article-content"></div>
+                    </div>
+                    <div class="md:col-span-3">
+                        <div class="glass p-6 rounded-3xl shadow-lg sticky top-24">
+                            <h3 class="text-lg font-bold mb-4 gradient-text">관련 뉴스</h3>
+                            <div id="relatedNews" class="space-y-4"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Archive Page -->
+            <div id="archivePage" class="hidden max-w-6xl mx-auto fade-in">
+                <!-- Archive Header -->
+                <div class="mb-8 glass p-6 rounded-3xl shadow-3d">
+                    <div class="flex items-center mb-4">
+                        <button onclick="showHomePage()" class="mr-4 p-2 rounded-full bg-white shadow hover:bg-gray-50 transition">
+                            <i class="fas fa-arrow-left text-gray-600"></i>
+                        </button>
+                        <h1 class="text-2xl md:text-3xl font-bold gradient-text">아카이브</h1>
+                    </div>
+                    <p class="text-gray-600">이전 분석 결과를 확인할 수 있습니다.</p>
+                </div>
+                
+                <!-- Archive List -->
+                <div id="archivesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Archive items will be generated here -->
+                </div>
+            </div>
+        </main>
+        
+        <!-- Footer -->
+        <footer class="bg-white glass mt-auto py-8">
+            <div class="container mx-auto px-6">
+                <div class="flex flex-wrap justify-between">
+                    <div class="w-full md:w-auto mb-6 md:mb-0">
+                        <h3 class="text-xl font-bold gradient-text mb-4">글로벌 인사이트</h3>
+                        <p class="text-gray-600 max-w-md">AI 기반 국제 정치 뉴스 분석 플랫폼입니다. 최신 해외 정치 뉴스를 자동으로 분석하여 중요 이슈와 쟁점을 요약해 드립니다.</p>
+                    </div>
+                    <div class="w-full md:w-auto">
+                        <h4 class="font-semibold mb-4">연결하기</h4>
+                        <div class="flex space-x-4">
+                            <a href="#" class="text-gray-500 hover:text-primary transition">
+                                <i class="fab fa-github text-xl"></i>
+                            </a>
+                            <a href="#" class="text-gray-500 hover:text-primary transition">
+                                <i class="fab fa-twitter text-xl"></i>
+                            </a>
+                            <a href="#" class="text-gray-500 hover:text-primary transition">
+                                <i class="fas fa-envelope text-xl"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="border-t border-gray-200 mt-8 pt-6 text-center text-sm text-gray-500">
+                    <p>&copy; 2024 글로벌 인사이트. All rights reserved.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script>
+        // Mobile analyze button
+        document.addEventListener('DOMContentLoaded', () => {
+            const mobileAnalyzeButton = document.getElementById('mobileAnalyzeButton');
+            if (mobileAnalyzeButton) {
+                mobileAnalyzeButton.addEventListener('click', generateReport);
+            }
+        });
+    </script>
+</body>
+</html>
