@@ -25,6 +25,75 @@ const rssParser = new Parser({
   }
 });
 
+// RSS 피드 URL 목록 추가
+const rssFeedUrls = [
+  'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',
+  'https://www.theguardian.com/world/rss',
+  'https://feeds.bbci.co.uk/news/world/rss.xml',
+  'https://www.reuters.com/world/rss/',
+  'https://apnews.com/rss/world-news',
+  'https://www.aljazeera.com/xml/rss/all.xml',
+  'https://foreignpolicy.com/feed/',
+  'http://feeds.washingtonpost.com/rss/world'
+];
+
+// RSS 피드를 파싱하는 함수
+async function fetchRssFeeds() {
+  console.log('📰 RSS 피드 수집 시작...');
+  let allItems = [];
+  const feedPromises = rssFeedUrls.map(async (url) => {
+    try {
+      console.log(`📡 RSS 피드 가져오기: ${url}`);
+      const feed = await rssParser.parseURL(url);
+      
+      // 각 아이템에 파스 정보와 RSS 플래그 추가
+      const items = feed.items.map(item => ({
+        ...item,
+        source: feed.title || new URL(url).hostname,
+        is_from_rss: true,
+        category: item.categories && item.categories.length > 0 ? item.categories[0] : 'general',
+        domain: new URL(url).hostname,
+        url: item.link,
+        title: item.title,
+        snippet: item.contentSnippet || item.description,
+        description: item.contentSnippet || item.description,
+        published_date: item.pubDate,
+        normalized_date: new Date(item.pubDate).toISOString()
+      }));
+      
+      console.log(`✅ ${url}에서 ${items.length}개의 항목을 가져왔습니다`);
+      return items;
+    } catch (error) {
+      console.error(`❌ RSS 피드 ${url} 파싱 오류:`, error.message);
+      return [];
+    }
+  });
+  
+  try {
+    const results = await Promise.allSettled(feedPromises);
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        allItems = [...allItems, ...result.value];
+      } else {
+        console.error(`❌ RSS 피드 처리 실패: ${rssFeedUrls[index]}`, result.reason);
+      }
+    });
+    
+    // 최신 항목 우선 정렬
+    allItems.sort((a, b) => {
+      const dateA = new Date(a.pubDate || a.published_date || 0);
+      const dateB = new Date(b.pubDate || b.published_date || 0);
+      return dateB - dateA;
+    });
+    
+    console.log(`📊 총 ${allItems.length}개의 RSS 피드 항목을 가져왔습니다`);
+    return allItems;
+  } catch (error) {
+    console.error('❌ RSS 피드 처리 중 오류:', error);
+    return [];
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -581,18 +650,20 @@ async function searchBrave(query, options = {}) {
 // 최근 정치 뉴스 검색 및 분석 엔드포인트
 app.post('/api/analyze', async (req, res) => {
   try {
+    console.log('\n=== 🚀 워크플로우 시작: 최신 정치 뉴스 분석 ===');
+    
     // 오늘 날짜 (YYYY-MM-DD 형식)
     const today = new Date().toISOString().split('T')[0];
     
     // 이미 오늘 분석한 결과가 있으면 재사용
     if (archiveData[today] && archiveData[today].topics) {
-      console.log('오늘의 분석 결과를 캐시에서 불러옵니다.');
+      console.log('📂 오늘의 분석 결과를 캐시에서 불러옵니다.');
       
       // 토픽이 6개가 안 되면 기본 토픽으로 채웁니다.
       let cachedTopics = archiveData[today].topics;
       
       if (cachedTopics.length < 6) {
-        console.log(`캐시된 토픽 수가 ${cachedTopics.length}개로 6개보다 적습니다. 기본 토픽을 추가합니다.`);
+        console.log(`⚠️ 캐시된 토픽 수가 ${cachedTopics.length}개로 6개보다 적습니다. 기본 토픽을 추가합니다.`);
         const defaultTopics = generateDefaultTopics();
         
         // 이미 있는 ID를 제외한 기본 토픽을 추가
@@ -607,7 +678,7 @@ app.post('/api/analyze', async (req, res) => {
         archiveData[today].topics = cachedTopics;
         saveArchiveData();
         
-        console.log(`토픽을 ${cachedTopics.length}개로 업데이트했습니다.`);
+        console.log(`✅ 토픽을 ${cachedTopics.length}개로 업데이트했습니다.`);
       }
       
       return res.json({ 
@@ -616,149 +687,98 @@ app.post('/api/analyze', async (req, res) => {
       });
     }
 
-    // 모든 검색 결과를 저장할 배열
-    let allResults = [];
+    // 1. RSS 피드를 먼저 가져옵니다
+    console.log('🔍 RSS 피드에서 최신 뉴스 수집 시작...');
+    const rssResults = await fetchRssFeeds();
     
-    // 1. 해외 주요 언론사 사이트 검색 (site: 연산자 사용)
-    console.log('해외 주요 언론사 검색 시작...');
+    console.log(`✅ RSS 피드에서 ${rssResults.length}개의 뉴스 항목을 가져왔습니다.`);
     
-    // 효율적인 검색을 위한 해외 언론사 쿼리 (영어로 변경)
-    const foreignMediaQueries = [
-      'site:bbc.com international politics latest news',
-      'site:cnn.com global affairs recent developments',
-      'site:reuters.com international relations this week',
-      'site:apnews.com world politics breaking news',
-      'site:theguardian.com international conflicts latest updates',
-      'site:nytimes.com foreign policy recent events',
-      'site:foreignpolicy.com geopolitics latest analysis',
-      'site:washingtonpost.com global politics current events'
-    ];
+    // RSS 항목이 부족한 경우 Brave API 검색을 통해 보완
+    let allResults = [...rssResults];
     
-    for (const query of foreignMediaQueries.slice(0, 6)) {
-      const results = await searchBrave(query, {
-        count: 5,
-        freshness: 'd', // 일 단위로 검색하여 최신 결과만 가져오기
-        search_lang: 'en',
-        country: 'US',
-        safesearch: 'moderate'
-      });
+    // 2. RSS 결과가 충분하지 않은 경우 Brave API 검색으로 보완
+    if (rssResults.length < 30) {
+      console.log(`⚠️ RSS 결과가 ${rssResults.length}개로 부족합니다. Brave API 검색으로 보완합니다.`);
       
-      allResults = [...allResults, ...results];
+      // 모든 검색 결과를 저장할 배열
+      let braveResults = [];
       
-      // API 레이트 리밋 관리
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // 해외 주요 언론사 사이트 검색 (site: 연산자 사용)
+      console.log('🌐 해외 주요 언론사 검색 시작...');
       
-      // 충분한 결과가 있으면 다음 단계로
-      if (allResults.length >= 20) break;
-    }
-    
-    console.log(`해외 언론사 검색 결과 수: ${allResults.length}`);
-    
-    // 2. 주요 국제 정치 키워드 검색
-    if (allResults.length < 30) {
-      console.log('주요 국제 정치 키워드 검색 시작...');
-      
-      // 영어 국제 정치 키워드 쿼리
-      const internationalPoliticsQueries = [
-        'Russia Ukraine war latest news 2024',
-        'Israel Gaza conflict recent developments',
-        'US China relations breaking news',
-        'North Korea missile test latest',
-        'European Union policy new updates',
-        'United Nations Security Council latest meeting',
-        'G20 summit recent developments',
-        'Middle East peace talks 2024',
-        'Africa political crisis latest news',
-        'Latin America politics current events'
+      // 효율적인 검색을 위한 해외 언론사 쿼리 (영어로 변경)
+      const foreignMediaQueries = [
+        'site:bbc.com international politics latest news',
+        'site:cnn.com global affairs recent developments',
+        'site:reuters.com international relations this week',
+        'site:apnews.com world politics breaking news',
+        'site:theguardian.com international conflicts latest updates',
+        'site:nytimes.com foreign policy recent events',
+        'site:foreignpolicy.com geopolitics latest analysis',
+        'site:washingtonpost.com global politics current events'
       ];
       
-      for (const query of internationalPoliticsQueries.slice(0, 6)) {
+      for (const query of foreignMediaQueries.slice(0, 4)) {
         const results = await searchBrave(query, {
           count: 5,
-          freshness: 'd',
+          freshness: 'd', // 일 단위로 검색하여 최신 결과만 가져오기
           search_lang: 'en',
           country: 'US',
           safesearch: 'moderate'
         });
         
-        allResults = [...allResults, ...results];
+        braveResults = [...braveResults, ...results];
         
         // API 레이트 리밋 관리
         await new Promise(resolve => setTimeout(resolve, 300));
         
         // 충분한 결과가 있으면 다음 단계로
-        if (allResults.length >= 30) break;
+        if (braveResults.length >= 20) break;
       }
-    }
-    
-    // 3. 한국 관련 해외 보도 검색
-    if (allResults.length < 40) {
-      console.log('한국 관련 해외 보도 검색 시작...');
       
-      // 한국 관련 영어 키워드
-      const koreaInternationalQueries = [
-        'South Korea international relations latest',
-        'Korean Peninsula geopolitics recent',
-        'Republic of Korea foreign policy update',
-        'South Korea United Nations recent',
-        'Korean Peninsula security latest news',
-        'Korea-US relations developments 2024',
-        'Korea-China relations current situation'
-      ];
+      console.log(`✅ 해외 언론사 검색 결과 수: ${braveResults.length}개`);
       
-      for (const query of koreaInternationalQueries.slice(0, 4)) {
-        const results = await searchBrave(query, {
-          count: 5,
-          freshness: 'd',
-          search_lang: 'en',
-          country: 'US',
-          safesearch: 'moderate'
-        });
+      // 주요 국제 정치 키워드 검색
+      if (braveResults.length < 20) {
+        console.log('🔍 주요 국제 정치 키워드 검색 시작...');
         
-        allResults = [...allResults, ...results];
+        // 영어 국제 정치 키워드 쿼리
+        const internationalPoliticsQueries = [
+          'Russia Ukraine war latest news 2024',
+          'Israel Gaza conflict recent developments',
+          'US China relations breaking news',
+          'North Korea missile test latest',
+          'European Union policy new updates'
+        ];
         
-        // API 레이트 리밋 관리
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        // 충분한 결과가 있으면 다음 단계로
-        if (allResults.length >= 40) break;
+        for (const query of internationalPoliticsQueries.slice(0, 3)) {
+          const results = await searchBrave(query, {
+            count: 5,
+            freshness: 'd',
+            search_lang: 'en',
+            country: 'US',
+            safesearch: 'moderate'
+          });
+          
+          braveResults = [...braveResults, ...results];
+          
+          // API 레이트 리밋 관리
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          // 충분한 결과가 있으면 중단
+          if (braveResults.length >= 20) break;
+        }
       }
-    }
-    
-    // 4. 추가 보완 검색 (여전히 결과가 부족한 경우)
-    if (allResults.length < 15) {
-      console.log('추가 보완 검색 시작...');
       
-      const broadQueries = [
-        'international news today headlines',
-        'global politics latest developments',
-        'world news breaking 2024',
-        'international affairs current events',
-        'global issues trending now'
-      ];
+      console.log(`✅ Brave API 검색 결과 총 ${braveResults.length}개 수집 완료`);
       
-      for (const query of broadQueries) {
-        const results = await searchBrave(query, {
-          count: 10,
-          freshness: 'd', // 일 단위로 제한하여 최신 결과만 가져오기
-          search_lang: 'en',
-          country: 'US',
-          safesearch: 'moderate'
-        });
-        
-        allResults = [...allResults, ...results];
-        
-        // API 레이트 리밋 관리
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        // 충분한 결과가 있으면 중단
-        if (allResults.length >= 30) break;
-      }
+      // RSS 결과와 Brave 결과 합치기
+      allResults = [...rssResults, ...braveResults];
     }
     
     // 검색 결과가 없는 경우 404 반환
     if (allResults.length === 0) {
-      console.log('검색 결과가 없어 분석을 진행할 수 없습니다.');
+      console.log('❌ 검색 결과가 없어 분석을 진행할 수 없습니다.');
       return res.status(404).json({ 
         error: '적절한 검색 결과를 찾을 수 없습니다. 잠시 후 다시 시도해주세요.'
       });
@@ -768,7 +788,7 @@ app.post('/api/analyze', async (req, res) => {
     const uniqueResults = Array.from(new Set(allResults.map(r => r.url)))
       .map(url => allResults.find(r => r.url === url));
     
-    console.log(`총 고유 검색 결과 개수: ${uniqueResults.length}`);
+    console.log(`✅ 총 고유 검색 결과 개수: ${uniqueResults.length}개`);
     
     // 최신 뉴스 필터링 (최근 2일)
     const recentArticles = uniqueResults.filter(result => {
@@ -777,10 +797,9 @@ app.post('/api/analyze', async (req, res) => {
       if (!dateStr) return false;
       
       try {
-        // 날짜 문자열에서 Date 객체로 변환 시도
         const articleDate = new Date(dateStr);
         const now = new Date();
-        const twoDaysAgo = new Date(now.setDate(now.getDate() - 2)); // 3일에서 2일로 변경하여 더 최신 기사만 필터링
+        const twoDaysAgo = new Date(now.setDate(now.getDate() - 2)); // 2일 이내 최신 기사만 필터링
         
         // 유효한 날짜이고 2일 이내인 경우
         return !isNaN(articleDate) && articleDate >= twoDaysAgo;
@@ -790,11 +809,11 @@ app.post('/api/analyze', async (req, res) => {
       }
     });
     
-    console.log(`최근 2일 이내 기사 수: ${recentArticles.length}`);
+    console.log(`📊 최근 2일 이내 기사 수: ${recentArticles.length}개`);
     
     // 최신 기사가 전체의 30% 이상인지 확인 및 로깅
     const recentRatio = uniqueResults.length > 0 ? recentArticles.length / uniqueResults.length : 0;
-    console.log(`최신 기사 비율: ${(recentRatio * 100).toFixed(2)}%`);
+    console.log(`📊 최신 기사 비율: ${(recentRatio * 100).toFixed(2)}%`);
     
     // 검색 결과에서 사용할 기사 선택 (최신 기사 우선)
     const resultsToUse = [
@@ -802,288 +821,50 @@ app.post('/api/analyze', async (req, res) => {
       ...uniqueResults.filter(article => !recentArticles.includes(article))
     ].slice(0, 40); // 최대 40개만 사용
     
-    // 주제 분석 및 생성 로직에서 토픽 수 제한
-    async function analyzeAndGenerateTopics(searchResults) {
-      const topicsCache = {};
-      const resultsToUse = searchResults || [];
-      
-      console.log(`\n=== 🧠 주제 선정 워크플로우 시작 ===`);
-      console.log(`📊 입력 데이터: 총 ${resultsToUse.length}개 뉴스 아이템`);
-      
-      // RSS 피드 결과 비율 계산
-      const rssResults = resultsToUse.filter(item => item.is_from_rss);
-      const rssRatio = resultsToUse.length > 0 ? (rssResults.length / resultsToUse.length) * 100 : 0;
-      console.log(`📊 RSS 피드 비율: ${rssRatio.toFixed(2)}% (${rssResults.length}/${resultsToUse.length})`);
-      
-      try {
-        // Gemini API를 통해 주제 생성
-        console.log(`🤖 Gemini API를 사용하여 주제 생성 시작...`);
-        const topics = await generateTopicsFromResults(resultsToUse);
-        
-        // 주제 개수를 6개로 제한
-        const finalTopics = topics.slice(0, 6);
-        console.log(`✅ 생성된 주제 ${topics.length}개 중 ${finalTopics.length}개로 제한했습니다`);
-        
-        // 최종 응답 구성
-        console.log(`=== 주제 선정 워크플로우 완료 ===\n`);
-        return {
-          topics: finalTopics,
-          searchResults: resultsToUse,
-          rssRatio: rssRatio
-        };
-      } catch (error) {
-        console.error('❌ 주제 생성 중 오류:', error);
-        
-        // 오류 발생 시 기본 주제 반환
-        const defaultTopics = generateDefaultTopics().slice(0, 6);
-        console.log(`⚠️ 오류로 인해 기본 주제 ${defaultTopics.length}개를 사용합니다`);
-        
-        console.log(`=== 주제 선정 워크플로우 완료 (오류 발생) ===\n`);
-        return {
-          topics: defaultTopics,
-          searchResults: resultsToUse,
-          rssRatio: rssRatio,
-          error: error.message
-        };
-      }
-    }
-
-    // Gemini 모델을 사용한 주제 생성 및 추출 함수
-    async function generateTopicsFromResults(searchResults) {
-      try {
-        console.log(`🤖 Gemini API 호출하여 주제 생성 중...`);
-        
-        // RSS 결과와 Brave 결과 구분
-        const rssResults = searchResults.filter(item => item.is_from_rss).slice(0, 20);
-        const braveResults = searchResults.filter(item => !item.is_from_rss).slice(0, 10);
-        
-        console.log(`📊 주제 생성에 사용할 데이터: RSS 결과 ${rssResults.length}개, Brave 결과 ${braveResults.length}개`);
-        
-        // RSS 결과 우선 배치
-        const combinedResults = [...rssResults, ...braveResults].slice(0, 25);
-        
-        // 결과를 카테고리별로 그룹화 (RSS 결과에만 해당)
-        const categoryGroups = {};
-        rssResults.forEach(item => {
-          const category = item.category || 'general';
-          if (!categoryGroups[category]) {
-            categoryGroups[category] = [];
-          }
-          categoryGroups[category].push(item);
-        });
-        
-        console.log(`📊 RSS 카테고리 분포: ${Object.keys(categoryGroups).map(cat => `${cat}(${categoryGroups[cat].length})`).join(', ')}`);
-        
-    const prompt = `
-        최근 국제 정치 뉴스 기사들을 분석하여 최신 6가지 주요 이슈나 주제를 추출해주세요. 
-        다음 뉴스 기사 목록을 분석하세요. 이 중 RSS 피드에서 가져온 기사(is_from_rss=true)를 우선적으로 고려하세요:
-        
-        ${JSON.stringify(combinedResults.map(item => ({
-          title: item.title,
-          description: item.description || item.snippet || item.contentSnippet,
-          source: item.source || item.domain,
-          date: item.normalized_date,
-          category: item.category,
-          is_from_rss: item.is_from_rss
-        })))}
-        
-        각 주제는 다음 형식의 JSON 구조로 반환해주세요:
-        
-    {
-      "topics": [
-        {
-          "id": 1,
-              "title": "주제 제목 (간결하지만 흥미롭게)",
-              "summary": "해당 주제에 대한 1-2문장 요약",
-              "icon": "font-awesome 아이콘 클래스 (예: fa-newspaper, fa-globe-asia, fa-handshake 등)",
-              "dateOccurred": "YYYY-MM-DD" (사건/이슈가 발생한 날짜, 오늘 또는 최근 3일 이내의 날짜로 설정)
-        },
-        ...
-      ]
-    }
-        
-        반드시 정확한 JSON 형식으로 반환해주세요. 각 주제는 국제 관계, 외교, 국가 간 갈등, 협상, 국제기구 활동 등과 관련되어야 합니다.
-        날짜(dateOccurred)는 가장 최근 토픽이 먼저 오도록 정렬해주세요. 오늘 날짜는 ${new Date().toISOString().split('T')[0]}입니다.
-        최신성이 중요하므로 모든 주제의 날짜는 오늘 또는 최근 3일 이내로 설정해주세요.
-        제목과 요약은 한국어로 작성해주세요.
-        각 주제에는 다음 아이콘 중 하나를 선택하여 할당하세요: fa-globe-asia, fa-handshake, fa-balance-scale, fa-landmark, fa-university, fa-flag, fa-users, fa-fighter-jet, fa-chart-line, fa-exclamation-triangle, fa-dove, fa-bolt, fa-fire, fa-atom, fa-newspaper, fa-shield-alt
-        `;
-        
-        const startTime = Date.now();
-        const result = await modelContent.generateContent({
-          contents: [{ role: "user", parts: [{ text: prompt }] }]
-        });
-        const endTime = Date.now();
-        
-        console.log(`✓ Gemini API 응답 수신 (${((endTime - startTime) / 1000).toFixed(1)}초 소요)`);
-        const textResult = result.response.text();
-        
-        try {
-          // JSON 텍스트 형식 추출 (```json으로 감싸져 있는 경우 처리)
-          const jsonText = textResult.includes('```json')
-            ? textResult.split('```json')[1].split('```')[0].trim()
-            : textResult.includes('```')
-              ? textResult.split('```')[1].split('```')[0].trim()
-              : textResult;
-          
-          // JSON 파싱
-          console.log(`🔍 주제 정보 JSON 파싱 중...`);
-          const parsed = JSON.parse(jsonText);
-          const topics = parsed.topics || [];
-          
-          // 날짜 기준으로 정렬 (최신순)
-          topics.sort((a, b) => {
-            const dateA = a.dateOccurred ? new Date(a.dateOccurred) : new Date(0);
-            const dateB = b.dateOccurred ? new Date(b.dateOccurred) : new Date(0);
-            return dateB - dateA;
-          });
-          
-          // ID 재할당 (정렬 후 번호 순서 맞추기)
-          const topicsWithIds = topics.map((topic, index) => ({
-            ...topic,
-            id: index + 1
-          }));
-          
-          console.log(`✅ ${topicsWithIds.length}개의 주제를 시간순으로 정렬했습니다`);
-          console.log(`📋 주제 목록: ${topicsWithIds.map(t => `"${t.title}"`).join(', ')}`);
-          return topicsWithIds;
-        } catch (error) {
-          console.error('❌ 주제 추출 중 JSON 파싱 오류:', error);
-          console.log('⚠️ 받은 응답:', textResult.substring(0, 200) + '...');
-          
-          // 기본 주제 생성 (오늘 날짜 기준)
-          return generateDefaultTopics();
-      }
-    } catch (error) {
-        console.error('❌ 주제 생성 중 API 오류:', error);
-        return generateDefaultTopics();
-      }
-    }
-
-    // 기본 주제 생성 함수
-    function generateDefaultTopics() {
-      const today = new Date().toISOString().split('T')[0];
-      
-      return [
-          {
-            id: 1,
-          title: "러시아-우크라이나 전쟁 최신 동향",
-          summary: "러시아-우크라이나 전쟁의 최신 상황과 국제사회의 대응에 관한 분석",
-          icon: "fa-fighter-jet",
-          dateOccurred: today
-          },
-          {
-            id: 2,
-          title: "중동 평화 협상 진전",
-          summary: "이스라엘과 팔레스타인 간의 최근 평화 협상 동향과 주변국들의 역할",
-          icon: "fa-dove",
-          dateOccurred: today
-          },
-          {
-            id: 3,
-          title: "미-중 경제 갈등 심화",
-          summary: "무역 분쟁과 기술 패권을 둘러싼 미국과 중국의 갈등 상황과 전망",
-          icon: "fa-chart-line",
-          dateOccurred: today
-          },
-          {
-            id: 4,
-          title: "유럽 연합 에너지 정책 변화",
-          summary: "친환경 에너지로의 전환을 위한 유럽 연합의 새로운 정책과 글로벌 영향",
-          icon: "fa-leaf",
-          dateOccurred: today
-          },
-          {
-            id: 5,
-          title: "아프리카 정치 불안정과 군사 쿠데타",
-          summary: "서아프리카 지역의 최근 정치적 불안정과 군사 쿠데타 발생에 대한 국제사회의 반응",
-          icon: "fa-exclamation-triangle",
-          dateOccurred: today
-        },
-        {
-          id: 6,
-          title: "글로벌 기후변화 대응 정책",
-          summary: "전 세계 국가들의 최신 기후변화 대응 협약과 국제 협력 현황",
-          icon: "fa-cloud-sun",
-          dateOccurred: today
-        }
-      ];
-    }
-    
-    // 최종 응답 구성
+    // 주제 분석 및 생성 실행
     const responseData = await analyzeAndGenerateTopics(resultsToUse);
     
-    // 아카이브 데이터 구조 초기화
+    // 아카이브에 데이터 저장
     if (!archiveData[today]) {
       archiveData[today] = {
+        date: today,
         topics: responseData.topics,
         articles: {},
-        searchResults: responseData.searchResults
+        stats: {
+          topicsGenerated: responseData.topics.length,
+          articlesGenerated: 0,
+          rssRatio: responseData.rssRatio || 0,
+          createdAt: new Date().toISOString()
+        }
       };
-      
-      // 응답할 형식으로 포맷팅
-      const formattedDate = new Date(today).toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long'
-      });
-      
-      archiveData[today].formattedDate = formattedDate;
+    } else {
+      archiveData[today].topics = responseData.topics;
+      if (!archiveData[today].stats) {
+        archiveData[today].stats = {
+          topicsGenerated: responseData.topics.length,
+          articlesGenerated: 0,
+          rssRatio: responseData.rssRatio || 0,
+          createdAt: new Date().toISOString()
+        };
+      } else {
+        archiveData[today].stats.topicsGenerated = responseData.topics.length;
+        archiveData[today].stats.rssRatio = responseData.rssRatio || 0;
+      }
     }
     
-    // 즉시 응답 반환
-    res.json({
-      topics: archiveData[today].topics,
-      isFromArchive: false
-    });
+    // 아카이브 데이터 저장
+    saveArchiveData();
+    console.log(`✅ 아카이브에 오늘(${today})의 분석 결과 저장 완료`);
     
-    // 모든 검색이 끝난 후 백그라운드에서 각 주제에 대한 기사 생성
-    (async () => {
-      try {
-        console.log('모든 검색이 완료되었습니다. 백그라운드에서 기사 생성을 시작합니다.');
-        
-        // 아카이브 구조가 없다면 초기화
-        if (!archiveData[today]) {
-          archiveData[today] = {
-            topics: responseData.topics,
-            articles: {},
-            searchResults: responseData.searchResults
-          };
-        }
-        
-        // 각 토픽에 대해 순차적으로 기사 생성
-        for (const topic of responseData.topics) {
-          try {
-            console.log(`토픽 ${topic.id} "${topic.title}"의 기사 생성 시작...`);
-            const article = await generateArticleForTopic(topic, responseData.searchResults);
-            
-            // 기사 저장
-            archiveData[today].articles[topic.id] = article;
-            console.log(`토픽 ${topic.id}의 기사 생성 완료`);
-          } catch (topicError) {
-            console.error(`토픽 ${topic.id} 처리 중 오류:`, topicError);
-          }
-          
-          // 다음 주제 처리 전 약간의 지연 (레이트 리밋 방지)
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        // 최종 아카이브 데이터 저장
-        await saveArchiveData();
-        console.log('모든 주제에 대한 기사 생성이 완료되었습니다.');
-  } catch (error) {
-        console.error('백그라운드 기사 생성 중 오류 발생:', error);
-      }
-    })();
+    // 클라이언트에 응답 전송
+    console.log('=== 워크플로우 완료: 최신 정치 뉴스 분석 ===\n');
+    return res.json(responseData);
     
   } catch (error) {
-    console.error('분석 중 오류 발생:', error);
-    const errorMessage = '뉴스 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-    
-    res.status(500).json({ 
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    console.error('❌ 분석 API 오류:', error);
+    return res.status(500).json({ 
+      error: '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      message: error.message
     });
   }
 });
@@ -2267,50 +2048,376 @@ app.post('/api/generate-article-youtube', async (req, res) => {
       return res.status(400).json({ error: '유효한 토픽 정보가 필요합니다.' });
     }
     
-    console.log(`토픽 ${topic.id} "${topic.title}"에 대한 유튜브 스크립트 생성 요청`);
-    
-    // 현재 날짜
     const today = new Date().toISOString().split('T')[0];
     
-    // 아카이브 데이터가 있는지 확인
-    if (!archiveData[today]) {
-      archiveData[today] = { topics: [], articles: {}, youtubeScripts: {}, searchResults: [] };
+    // 캐시된 기사 확인
+    if (archiveData[today] && 
+        archiveData[today].articles && 
+        archiveData[today].articles[topic.id] && 
+        archiveData[today].articles[topic.id].youtubeScript) {
+      
+      console.log(`토픽 ID ${topic.id}에 대한 캐시된 유튜브 스크립트 반환`);
+      return res.json({
+        script: archiveData[today].articles[topic.id].youtubeScript,
+        article: archiveData[today].articles[topic.id]
+      });
     }
     
-    // 유튜브 스크립트 저장소 초기화
-    if (!archiveData[today].youtubeScripts) {
-          archiveData[today] = {
-            topics: responseData.topics,
-            articles: {},
-            searchResults: responseData.searchResults
-          };
-        }
-        
+    // 백그라운드에서 유튜브 스크립트 생성
+    res.json({
+      message: '유튜브 스크립트 생성이 시작되었습니다. 잠시 후 다시 확인해주세요.',
+      inProgress: true,
+      topic: topic
+    });
+    
+    // 백그라운드에서 실행
+    (async () => {
+      try {
         // 각 토픽에 대해 순차적으로 기사 생성
-        for (const topic of responseData.topics) {
-          try {
-            console.log(`📝 토픽 ${topic.id} "${topic.title}"의 기사 생성 시작...`);
-            const article = await generateArticleForTopic(topic, responseData.searchResults);
+        console.log(`📝 토픽 ${topic.id} "${topic.title}"의 기사 생성 시작...`);
+        const article = await generateArticleForTopic(topic, searchResults);
             
-            // 기사 저장
-            archiveData[today].articles[topic.id] = article;
-            console.log(`✅ 토픽 ${topic.id}의 기사 생성 완료`);
-            
-            // 아카이브 저장
-            saveArchiveData();
-          } catch (topicError) {
-            console.error(`❌ 토픽 ${topic.id}의 기사 생성 실패:`, topicError);
-          }
+        // 기사 저장
+        if (!archiveData[today]) {
+          archiveData[today] = { topics: [], articles: {} };
+        }
+        if (!archiveData[today].articles) {
+          archiveData[today].articles = {};
         }
         
-        console.log('🎉 모든 토픽에 대한 기사 생성 작업이 완료되었습니다');
-  } catch (error) {
-        console.error('❌ 백그라운드 기사 생성 중 오류:', error);
+        archiveData[today].articles[topic.id] = article;
+        console.log(`✅ 토픽 ${topic.id}의 기사 생성 완료`);
+            
+        // 유튜브 스크립트 생성
+        console.log(`🎬 토픽 ${topic.id}의 유튜브 스크립트 생성 시작...`);
+        const script = await generateYoutubeScriptForTopic(topic, searchResults);
+        
+        // 스크립트 저장
+        archiveData[today].articles[topic.id].youtubeScript = script;
+        console.log(`✅ 토픽 ${topic.id}의 유튜브 스크립트 생성 완료`);
+        
+        // 아카이브 저장
+        saveArchiveData();
+        
+        console.log('🎉 유튜브 스크립트 생성 작업이 완료되었습니다');
+      } catch (error) {
+        console.error('❌ 백그라운드 기사/스크립트 생성 중 오류:', error);
       }
     })();
-    
   } catch (error) {
-    console.error('❌ 분석 중 오류 발생:', error);
-    return res.status(500).json({ error: '분석 중 오류가 발생했습니다.', message: error.message });
+    console.error('❌ 스크립트 생성 API 오류:', error);
+    return res.status(500).json({ 
+      error: '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      message: error.message 
+    });
+  }
+});
+
+// 주제 분석 및 생성 로직에서 토픽 수 제한
+async function analyzeAndGenerateTopics(searchResults) {
+  const topicsCache = {};
+  const resultsToUse = searchResults || [];
+  
+  console.log(`\n=== 🧠 주제 선정 워크플로우 시작 ===`);
+  console.log(`📊 입력 데이터: 총 ${resultsToUse.length}개 뉴스 아이템`);
+  
+  // RSS 피드 결과 비율 계산
+  const rssResults = resultsToUse.filter(item => item.is_from_rss);
+  const rssRatio = resultsToUse.length > 0 ? (rssResults.length / resultsToUse.length) * 100 : 0;
+  console.log(`📊 RSS 피드 비율: ${rssRatio.toFixed(2)}% (${rssResults.length}/${resultsToUse.length})`);
+  
+  try {
+    // Gemini API를 통해 주제 생성
+    console.log(`🤖 Gemini API를 사용하여 주제 생성 시작...`);
+    const topics = await generateTopicsFromResults(resultsToUse);
+    
+    // 주제 개수를 6개로 제한
+    const finalTopics = topics.slice(0, 6);
+    console.log(`✅ 생성된 주제 ${topics.length}개 중 ${finalTopics.length}개로 제한했습니다`);
+    
+    // 최종 응답 구성
+    console.log(`=== 주제 선정 워크플로우 완료 ===\n`);
+    return {
+      topics: finalTopics,
+      searchResults: resultsToUse,
+      rssRatio: rssRatio
+    };
+  } catch (error) {
+    console.error('❌ 주제 생성 중 오류:', error);
+    
+    // 오류 발생 시 기본 주제 반환
+    const defaultTopics = generateDefaultTopics().slice(0, 6);
+    console.log(`⚠️ 오류로 인해 기본 주제 ${defaultTopics.length}개를 사용합니다`);
+    
+    console.log(`=== 주제 선정 워크플로우 완료 (오류 발생) ===\n`);
+    return {
+      topics: defaultTopics,
+      searchResults: resultsToUse,
+      rssRatio: rssRatio,
+      error: error.message
+    };
+  }
+}
+
+// Gemini 모델을 사용한 주제 생성 및 추출 함수
+async function generateTopicsFromResults(searchResults) {
+  try {
+    console.log(`🤖 Gemini API 호출하여 주제 생성 중...`);
+    
+    // RSS 결과와 Brave 결과 구분
+    const rssResults = searchResults.filter(item => item.is_from_rss).slice(0, 20);
+    const braveResults = searchResults.filter(item => !item.is_from_rss).slice(0, 10);
+    
+    console.log(`📊 주제 생성에 사용할 데이터: RSS 결과 ${rssResults.length}개, Brave 결과 ${braveResults.length}개`);
+    
+    // RSS 결과 우선 배치
+    const combinedResults = [...rssResults, ...braveResults].slice(0, 25);
+    
+    // 결과를 카테고리별로 그룹화 (RSS 결과에만 해당)
+    const categoryGroups = {};
+    rssResults.forEach(item => {
+      const category = item.category || 'general';
+      if (!categoryGroups[category]) {
+        categoryGroups[category] = [];
+      }
+      categoryGroups[category].push(item);
+    });
+    
+    console.log(`📊 RSS 카테고리 분포: ${Object.keys(categoryGroups).map(cat => `${cat}(${categoryGroups[cat].length})`).join(', ')}`);
+    
+    const prompt = `
+    최근 국제 정치 뉴스 기사들을 분석하여 최신 6가지 주요 이슈나 주제를 추출해주세요. 
+    다음 뉴스 기사 목록을 분석하세요. 이 중 RSS 피드에서 가져온 기사(is_from_rss=true)를 우선적으로 고려하세요:
+    
+    ${JSON.stringify(combinedResults.map(item => ({
+      title: item.title,
+      description: item.description || item.snippet || item.contentSnippet,
+      source: item.source || item.domain,
+      date: item.normalized_date,
+      category: item.category,
+      is_from_rss: item.is_from_rss
+    })))}
+    
+    각 주제는 다음 형식의 JSON 구조로 반환해주세요:
+    
+    {
+      "topics": [
+        {
+          "id": 1,
+              "title": "주제 제목 (간결하지만 흥미롭게)",
+              "summary": "해당 주제에 대한 1-2문장 요약",
+              "icon": "font-awesome 아이콘 클래스 (예: fa-newspaper, fa-globe-asia, fa-handshake 등)",
+              "dateOccurred": "YYYY-MM-DD" (사건/이슈가 발생한 날짜, 오늘 또는 최근 3일 이내의 날짜로 설정)
+        },
+        ...
+      ]
+    }
+    
+    반드시 정확한 JSON 형식으로 반환해주세요. 각 주제는 국제 관계, 외교, 국가 간 갈등, 협상, 국제기구 활동 등과 관련되어야 합니다.
+    날짜(dateOccurred)는 가장 최근 토픽이 먼저 오도록 정렬해주세요. 오늘 날짜는 ${new Date().toISOString().split('T')[0]}입니다.
+    최신성이 중요하므로 모든 주제의 날짜는 오늘 또는 최근 3일 이내로 설정해주세요.
+    제목과 요약은 한국어로 작성해주세요.
+    각 주제에는 다음 아이콘 중 하나를 선택하여 할당하세요: fa-globe-asia, fa-handshake, fa-balance-scale, fa-landmark, fa-university, fa-flag, fa-users, fa-fighter-jet, fa-chart-line, fa-exclamation-triangle, fa-dove, fa-bolt, fa-fire, fa-atom, fa-newspaper, fa-shield-alt
+    `;
+    
+    const startTime = Date.now();
+    const result = await modelContent.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }]
+    });
+    const endTime = Date.now();
+    
+    console.log(`✓ Gemini API 응답 수신 (${((endTime - startTime) / 1000).toFixed(1)}초 소요)`);
+    const textResult = result.response.text();
+    
+    try {
+      // JSON 텍스트 형식 추출 (```json으로 감싸져 있는 경우 처리)
+      const jsonText = textResult.includes('```json')
+        ? textResult.split('```json')[1].split('```')[0].trim()
+        : textResult.includes('```')
+          ? textResult.split('```')[1].split('```')[0].trim()
+          : textResult;
+      
+      // JSON 파싱
+      console.log(`🔍 주제 정보 JSON 파싱 중...`);
+      const parsed = JSON.parse(jsonText);
+      const topics = parsed.topics || [];
+      
+      // 날짜 기준으로 정렬 (최신순)
+      topics.sort((a, b) => {
+        const dateA = a.dateOccurred ? new Date(a.dateOccurred) : new Date(0);
+        const dateB = b.dateOccurred ? new Date(b.dateOccurred) : new Date(0);
+        return dateB - dateA;
+      });
+      
+      // ID 재할당 (정렬 후 번호 순서 맞추기)
+      const topicsWithIds = topics.map((topic, index) => ({
+        ...topic,
+        id: index + 1
+      }));
+      
+      console.log(`✅ ${topicsWithIds.length}개의 주제를 시간순으로 정렬했습니다`);
+      console.log(`📋 주제 목록: ${topicsWithIds.map(t => `"${t.title}"`).join(', ')}`);
+      return topicsWithIds;
+    } catch (error) {
+      console.error('❌ 주제 추출 중 JSON 파싱 오류:', error);
+      console.log('⚠️ 받은 응답:', textResult.substring(0, 200) + '...');
+      
+      // 기본 주제 생성 (오늘 날짜 기준)
+      return generateDefaultTopics();
+    }
+  } catch (error) {
+    console.error('❌ 주제 생성 중 API 오류:', error);
+    return generateDefaultTopics();
+  }
+}
+
+// 기본 주제 생성 함수
+function generateDefaultTopics() {
+  const today = new Date().toISOString().split('T')[0];
+  
+  return [
+    {
+      id: 1,
+      title: "러시아-우크라이나 전쟁 최신 동향",
+      summary: "러시아-우크라이나 전쟁의 최신 상황과 국제사회의 대응에 관한 분석",
+      icon: "fa-fighter-jet",
+      dateOccurred: today
+    },
+    {
+      id: 2,
+      title: "중동 평화 협상 진전",
+      summary: "이스라엘과 팔레스타인 간의 최근 평화 협상 동향과 주변국들의 역할",
+      icon: "fa-dove",
+      dateOccurred: today
+    },
+    {
+      id: 3,
+      title: "미-중 경제 갈등 심화",
+      summary: "무역 분쟁과 기술 패권을 둘러싼 미국과 중국의 갈등 상황과 전망",
+      icon: "fa-chart-line",
+      dateOccurred: today
+    },
+    {
+      id: 4,
+      title: "유럽 연합 에너지 정책 변화",
+      summary: "친환경 에너지로의 전환을 위한 유럽 연합의 새로운 정책과 글로벌 영향",
+      icon: "fa-leaf",
+      dateOccurred: today
+    },
+    {
+      id: 5,
+      title: "아프리카 정치 불안정과 군사 쿠데타",
+      summary: "서아프리카 지역의 최근 정치적 불안정과 군사 쿠데타 발생에 대한 국제사회의 반응",
+      icon: "fa-exclamation-triangle",
+      dateOccurred: today
+    },
+    {
+      id: 6,
+      title: "글로벌 기후변화 대응 정책",
+      summary: "전 세계 국가들의 최신 기후변화 대응 협약과 국제 협력 현황",
+      icon: "fa-cloud-sun",
+      dateOccurred: today
+    }
+  ];
+}
+
+// API 엔드포인트 - 캐시 삭제
+app.post('/api/clear-cache', async (req, res) => {
+  try {
+    console.log('\n=== 🧹 캐시 삭제 프로세스 시작 ===');
+    
+    const { clearAll, timestamp, removeArchive } = req.body;
+    console.log(`요청 파라미터: clearAll=${clearAll}, removeArchive=${removeArchive}`);
+    
+    // 아카이브 백업 생성 (삭제 전)
+    const today = new Date().toISOString().split('T')[0];
+    const backupTime = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '');
+    const backupPath = path.join(ARCHIVE_DIR, `archive_backup_${backupTime}.json`);
+    
+    console.log(`📦 아카이브 데이터 백업 생성: ${backupPath}`);
+    try {
+      if (!fs.existsSync(ARCHIVE_DIR)) {
+        fs.mkdirSync(ARCHIVE_DIR, { recursive: true });
+      }
+      fs.writeFileSync(backupPath, JSON.stringify(archiveData, null, 2));
+      console.log(`✅ 아카이브 백업 파일 생성 완료`);
+    } catch (backupError) {
+      console.error(`❌ 아카이브 백업 중 오류: ${backupError.message}`);
+    }
+    
+    // 캐시 항목 수 계산
+    const searchCacheCount = Object.keys(searchCache).length;
+    const keywordCacheCount = Object.keys(keywordCache).length;
+    const articleCacheCount = Object.keys(articleCache).length;
+    const archiveDataCount = Object.keys(archiveData).length;
+    
+    console.log(`📊 현재 캐시 상태:`);
+    console.log(`- 검색 캐시: ${searchCacheCount}개 항목`);
+    console.log(`- 키워드 캐시: ${keywordCacheCount}개 항목`);
+    console.log(`- 기사 캐시: ${articleCacheCount}개 항목`);
+    console.log(`- 아카이브 데이터: ${archiveDataCount}개 항목`);
+    
+    // 캐시 삭제
+    searchCache = {};
+    keywordCache = {};
+    articleCache = {};
+    
+    console.log(`✅ 메모리 캐시 삭제 완료 (검색, 키워드, 기사 캐시)`);
+    
+    // 아카이브 데이터 처리
+    let archiveDataCleared = 0;
+    
+    if (removeArchive) {
+      console.log(`🗑️ 아카이브 데이터 삭제 시작...`);
+      
+      // 오늘 날짜의 데이터만 삭제하거나 전체 삭제 옵션 처리
+      if (clearAll) {
+        archiveDataCleared = Object.keys(archiveData).length;
+        archiveData = {};
+        console.log(`✅ 모든 아카이브 데이터 삭제 완료 (${archiveDataCleared}개 항목)`);
+      } else {
+        // 오늘 데이터만 삭제
+        if (archiveData[today]) {
+          delete archiveData[today];
+          archiveDataCleared = 1;
+          console.log(`✅ 오늘(${today})의 아카이브 데이터 삭제 완료`);
+        } else {
+          console.log(`ℹ️ 오늘(${today})의 아카이브 데이터가 없습니다`);
+        }
+      }
+      
+      // 아카이브 데이터 저장
+      try {
+        saveArchiveData();
+        console.log(`✅ 아카이브 데이터 파일 업데이트 완료`);
+      } catch (saveError) {
+        console.error(`❌ 아카이브 데이터 저장 중 오류: ${saveError.message}`);
+      }
+    } else {
+      console.log(`ℹ️ 아카이브 데이터 삭제가 요청되지 않았습니다`);
+    }
+    
+    console.log('=== 캐시 삭제 프로세스 완료 ===\n');
+    
+    // 삭제된 항목 통계와 함께 응답
+    res.json({
+      success: true,
+      message: '캐시가 성공적으로 삭제되었습니다.',
+      timestamp: Date.now(),
+      details: {
+        searchCacheCleared: searchCacheCount,
+        keywordCacheCleared: keywordCacheCount,
+        articleCacheCleared: articleCacheCount,
+        archiveDataCleared: archiveDataCleared,
+        backupCreated: backupPath
+      }
+    });
+  } catch (error) {
+    console.error('❌ 캐시 삭제 중 오류 발생:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: '캐시 삭제 중 오류가 발생했습니다.', 
+      message: error.message 
+    });
   }
 });
